@@ -35,7 +35,7 @@ FundLoop is a comprehensive mobile application built with React Native and Expo,
 1. Clone the repository
 
    ```bash
-   git clone https://github.com/yourusername/Project-FundLoop.git
+   git clone https://github.com/mahmoudbahkiry/Project-FundLoop.git
    cd Project-FundLoop
    ```
 
