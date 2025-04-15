@@ -82,11 +82,3 @@ FundLoop is a comprehensive mobile application built with React Native and Expo,
 ## 🔧 Configuration
 
 The app uses Firebase for backend services. Make sure to set up your Firebase project and update the configuration files accordingly.
-
-## 📄 License
-
-[Your License Here]
-
-## 👥 Contributors
-
-[Your Name/Team Information]
