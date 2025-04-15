@@ -1,0 +1,27 @@
+// Firestore Security Rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow users to read and write only their own data
+    match /users/{userId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+    }
+    
+    // Allow users to read and write only their own journal entries
+    match /journalEntries/{entryId} {
+      allow get: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow list: if request.auth != null && request.query.limit <= 100 && 
+                  request.query.where[0][0] == 'userId' && 
+                  request.query.where[0][1] == '==' && 
+                  request.query.where[0][2] == request.auth.uid;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
