@@ -1,50 +1,92 @@
-# Welcome to your Expo app 👋
+# FundLoop
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+FundLoop is a comprehensive mobile application built with React Native and Expo, designed for investment fund management and trading analytics.
 
-## Get started
+## 🌟 Features
 
-1. Install dependencies
+- **Authentication**: Secure login and signup functionality
+- **Trading Dashboard**: Real-time trading interface with advanced charts
+- **Performance Analytics**: Detailed analytics and visualization of investment performance
+- **Account Management**: User profile and account settings
+- **Trading Rules**: Customizable trading rules and parameters
+- **Evaluation Tools**: Tools for evaluating investment strategies
+
+## 🚀 Tech Stack
+
+- [Expo](https://expo.dev/) - React Native framework
+- [Firebase](https://firebase.google.com/) - Backend and authentication
+- [React Navigation](https://reactnavigation.org/) - Navigation and routing
+- [Reanimated](https://docs.swmansion.com/react-native-reanimated/) - Animations
+- [React Native Skia](https://shopify.github.io/react-native-skia/) - High-performance graphics
+- [Wagmi Charts](https://github.com/coinjar/react-native-wagmi-charts) - Financial charting
+- [Chart Kit](https://github.com/indiespirit/react-native-chart-kit) - Additional charting tools
+
+## 📱 Getting Started
+
+### Prerequisites
+
+- Node.js (LTS version)
+- npm or yarn
+- Expo CLI
+- iOS Simulator or Android Emulator (optional for testing)
+
+### Installation
+
+1. Clone the repository
+
+   ```bash
+   git clone https://github.com/yourusername/Project-FundLoop.git
+   cd Project-FundLoop
+   ```
+
+2. Install dependencies
 
    ```bash
    npm install
+   # or
+   yarn
    ```
 
-2. Start the app
+3. Start the development server
 
    ```bash
-    npx expo start
+   npm start
+   # or
+   yarn start
    ```
 
-In the output, you'll find options to open the app in a
+4. Run on a specific platform
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   ```bash
+   # For iOS
+   npm run ios
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+   # For Android
+   npm run android
 
-## Get a fresh project
+   # For web
+   npm run web
+   ```
 
-When you're ready, run:
+## 📂 Project Structure
 
-```bash
-npm run reset-project
-```
+- `/app` - Main application code using Expo Router file-based routing
+  - `/(auth)` - Authentication screens (login, signup, welcome)
+  - `/(tabs)` - Main app tabs and functionality
+- `/components` - Reusable UI components
+- `/contexts` - React contexts for state management
+- `/hooks` - Custom React hooks
+- `/constants` - Application constants and configuration
+- `/assets` - Images, fonts, and other static assets
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🔧 Configuration
 
-## Learn more
+The app uses Firebase for backend services. Make sure to set up your Firebase project and update the configuration files accordingly.
 
-To learn more about developing your project with Expo, look at the following resources:
+## 📄 License
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+[Your License Here]
 
-## Join the community
+## 👥 Contributors
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+[Your Name/Team Information]
