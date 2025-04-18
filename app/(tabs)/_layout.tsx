@@ -1,21 +1,21 @@
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors } from '@/constants/Colors';
+import { Tabs } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useColorScheme } from "@/hooks/useColorScheme";
+import { Colors } from "@/constants/Colors";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const theme = colorScheme ?? 'light';
+  const theme = colorScheme ?? "light";
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false, // Hide the header completely
         tabBarStyle: {
-          backgroundColor: theme === 'dark' ? '#000000' : '#fff',
+          backgroundColor: theme === "dark" ? "#000000" : "#fff",
           borderTopWidth: 0, // Remove top border
           elevation: 8, // Add shadow on Android
-          shadowColor: '#000', // Shadow color
+          shadowColor: "#000", // Shadow color
           shadowOffset: { width: 0, height: -3 }, // Shadow position
           shadowOpacity: 0.1, // Shadow opacity
           shadowRadius: 4, // Shadow blur radius
@@ -23,10 +23,10 @@ export default function TabLayout() {
           paddingBottom: 16, // Increased bottom padding for better spacing
         },
         tabBarActiveTintColor: Colors[theme].primary,
-        tabBarInactiveTintColor: theme === 'dark' ? '#9BA1A6' : '#687076',
+        tabBarInactiveTintColor: theme === "dark" ? "#9BA1A6" : "#687076",
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '500',
+          fontWeight: "500",
           marginBottom: 4,
         },
       }}
@@ -34,7 +34,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: "Dashboard",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="grid" size={size} color={color} />
           ),
@@ -43,37 +43,47 @@ export default function TabLayout() {
           },
         }}
       />
-      
+
       <Tabs.Screen
         name="trading"
         options={{
-          title: 'Trading',
+          title: "Trading",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trending-up" size={size} color={color} />
           ),
         }}
       />
-      
+
       <Tabs.Screen
         name="analytics"
         options={{
-          title: 'Analytics',
+          title: "Analytics",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="analytics" size={size} color={color} />
           ),
         }}
       />
-      
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size} color={color} />
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: "Settings",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="options" size={size} color={color} />
           ),
         }}
       />
-      
+
       {/* Hide these screens from the tab bar */}
       <Tabs.Screen
         name="account"
