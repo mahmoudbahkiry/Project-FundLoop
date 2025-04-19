@@ -68,14 +68,11 @@ export default function ContactSupportScreen() {
           {/* CEO Profile Section */}
           <View style={styles.profileSection}>
             <View style={styles.profileImageContainer}>
-              <View
-                style={[
-                  styles.profileImagePlaceholder,
-                  { backgroundColor: Colors[currentTheme].primary },
-                ]}
-              >
-                <Ionicons name="person" size={60} color="#FFFFFF" />
-              </View>
+              <Image
+                source={require("@/assets/images/profilePicture.jpg")}
+                style={styles.profileImage}
+                resizeMode="cover"
+              />
             </View>
 
             <ThemedText type="heading" style={styles.nameText}>
@@ -274,14 +271,17 @@ const styles = StyleSheet.create({
     paddingTop: 40,
   },
   profileImageContainer: {
-    marginBottom: 20,
-  },
-  profileImagePlaceholder: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    justifyContent: "center",
-    alignItems: "center",
+    marginBottom: 20,
+    overflow: "hidden",
+    borderWidth: 3,
+    borderColor: Colors.light.primary,
+  },
+  profileImage: {
+    width: "100%",
+    height: "100%",
   },
   nameText: {
     textAlign: "center",
