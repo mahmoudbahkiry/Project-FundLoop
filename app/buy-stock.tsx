@@ -461,11 +461,6 @@ export default function BuyStockScreen() {
                       )}
                     </ThemedText>
                   </View>
-
-                  <ThemedText type="caption" style={styles.wholeUnitsNote}>
-                    Only whole units can be purchased. Partial units are rounded
-                    down.
-                  </ThemedText>
                 </View>
               </>
             )}
@@ -527,11 +522,6 @@ export default function BuyStockScreen() {
                       )}
                     </ThemedText>
                   </View>
-
-                  <ThemedText type="caption" style={styles.wholeUnitsNote}>
-                    Only whole units can be purchased. Partial units are rounded
-                    down.
-                  </ThemedText>
                 </View>
 
                 <ThemedText type="caption" style={styles.limitExplanation}>
