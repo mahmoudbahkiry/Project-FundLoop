@@ -14,6 +14,11 @@ import {
   getUserOrders,
   deletePosition,
   updateOrderStatus,
+  addStarredStock,
+  removeStarredStock,
+  getUserStarredStocks,
+  StarredStock,
+  migrateStarredStocks,
 } from "@/firebase/tradingService";
 
 export interface Position {
@@ -43,9 +48,13 @@ export type AccountMode = "Evaluation" | "Funded";
 interface TradingContextType {
   positions: Position[];
   orders: Order[];
+  starredStocks: StarredStock[];
   addPosition: (position: Omit<Position, "id">) => Promise<void>;
   addOrder: (order: Omit<Order, "id">) => Promise<void>;
   closePosition: (id: string) => Promise<void>;
+  starStock: (stock: { symbol: string; name: string }) => Promise<void>;
+  unstarStock: (stockId: string) => Promise<void>;
+  isStarred: (symbol: string) => boolean;
   loading: boolean;
   balance: number;
   updateBalance: (newBalance: number) => Promise<void>;
@@ -74,6 +83,7 @@ const POSITIONS_STORAGE_KEY = "trading_positions";
 const ORDERS_STORAGE_KEY = "trading_orders";
 const BALANCE_STORAGE_KEY = "trading_balance";
 const ACCOUNT_MODE_KEY = "account_mode";
+const STARRED_STOCKS_KEY = "starred_stocks";
 
 // Default starting balance
 const DEFAULT_BALANCE = 100000;
@@ -85,11 +95,17 @@ export function TradingProvider({ children }: TradingProviderProps) {
   );
   const [evaluationOrders, setEvaluationOrders] = useState<Order[]>([]);
   const [evaluationBalance, setEvaluationBalance] = useState(DEFAULT_BALANCE);
+  const [evaluationStarredStocks, setEvaluationStarredStocks] = useState<
+    StarredStock[]
+  >([]);
 
   // Trading data for Funded mode
   const [fundedPositions, setFundedPositions] = useState<Position[]>([]);
   const [fundedOrders, setFundedOrders] = useState<Order[]>([]);
   const [fundedBalance, setFundedBalance] = useState(DEFAULT_BALANCE);
+  const [fundedStarredStocks, setFundedStarredStocks] = useState<
+    StarredStock[]
+  >([]);
 
   // Active mode state
   const [accountMode, setAccountMode] = useState<AccountMode>("Evaluation");
@@ -103,6 +119,10 @@ export function TradingProvider({ children }: TradingProviderProps) {
   const orders = accountMode === "Evaluation" ? evaluationOrders : fundedOrders;
   const balance =
     accountMode === "Evaluation" ? evaluationBalance : fundedBalance;
+  const starredStocks =
+    accountMode === "Evaluation"
+      ? evaluationStarredStocks
+      : fundedStarredStocks;
 
   // Save positions to AsyncStorage with mode prefix
   const savePositionsToStorage = async (
@@ -151,6 +171,23 @@ export function TradingProvider({ children }: TradingProviderProps) {
       await AsyncStorage.setItem(storageKey, mode);
     } catch (error) {
       console.error("Error saving account mode to AsyncStorage:", error);
+    }
+  };
+
+  // Save starred stocks to AsyncStorage
+  const saveStarredStocksToStorage = async (
+    stocks: StarredStock[],
+    mode: AccountMode
+  ) => {
+    try {
+      const userId = user?.uid || "guest";
+      const storageKey = `${STARRED_STOCKS_KEY}_${mode}_${userId}`;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(stocks));
+    } catch (error) {
+      console.error(
+        `Error saving ${mode} starred stocks to AsyncStorage:`,
+        error
+      );
     }
   };
 
@@ -211,6 +248,24 @@ export function TradingProvider({ children }: TradingProviderProps) {
     }
   };
 
+  // Load starred stocks from AsyncStorage
+  const loadStarredStocksFromStorage = async (
+    mode: AccountMode
+  ): Promise<StarredStock[]> => {
+    try {
+      const userId = user?.uid || "guest";
+      const storageKey = `${STARRED_STOCKS_KEY}_${mode}_${userId}`;
+      const stocksData = await AsyncStorage.getItem(storageKey);
+      return stocksData ? JSON.parse(stocksData) : [];
+    } catch (error) {
+      console.error(
+        `Error loading ${mode} starred stocks from AsyncStorage:`,
+        error
+      );
+      return [];
+    }
+  };
+
   // Handle account mode change
   const handleAccountModeChange = async (mode: AccountMode) => {
     setAccountMode(mode);
@@ -233,7 +288,7 @@ export function TradingProvider({ children }: TradingProviderProps) {
     }
   };
 
-  // Load user's positions, orders, and account mode on mount and when user changes
+  // Load user's positions, orders, starred stocks, and account mode on mount and when user changes
   useEffect(() => {
     const loadUserTradingData = async () => {
       setLoading(true);
@@ -246,28 +301,79 @@ export function TradingProvider({ children }: TradingProviderProps) {
         const evalPositions = await loadPositionsFromStorage("Evaluation");
         const evalOrders = await loadOrdersFromStorage("Evaluation");
         const evalBalance = await loadBalanceFromStorage("Evaluation");
+        const evalStarredStocks = await loadStarredStocksFromStorage(
+          "Evaluation"
+        );
 
         setEvaluationPositions(evalPositions);
         setEvaluationOrders(evalOrders);
         setEvaluationBalance(evalBalance);
+        setEvaluationStarredStocks(evalStarredStocks);
 
         // Load Funded data
         const fundedPositions = await loadPositionsFromStorage("Funded");
         const fundedOrders = await loadOrdersFromStorage("Funded");
         const fundedBalance = await loadBalanceFromStorage("Funded");
+        const fundedStarredStocks = await loadStarredStocksFromStorage(
+          "Funded"
+        );
 
         setFundedPositions(fundedPositions);
         setFundedOrders(fundedOrders);
         setFundedBalance(fundedBalance);
+        setFundedStarredStocks(fundedStarredStocks);
+
+        // If user is logged in, try to get starred stocks from Firestore
+        if (user) {
+          try {
+            // Attempt to migrate any old starred stocks to the new format
+            try {
+              await migrateStarredStocks(user.uid);
+            } catch (migrationError) {
+              console.error("Error migrating starred stocks:", migrationError);
+              // Continue with loading even if migration fails
+            }
+
+            // Load evaluation starred stocks
+            const evalFirestoreStocks = await getUserStarredStocks(
+              user.uid,
+              "Evaluation"
+            );
+            if (evalFirestoreStocks.length > 0) {
+              setEvaluationStarredStocks(evalFirestoreStocks);
+              await saveStarredStocksToStorage(
+                evalFirestoreStocks,
+                "Evaluation"
+              );
+            }
+
+            // Load funded starred stocks
+            const fundedFirestoreStocks = await getUserStarredStocks(
+              user.uid,
+              "Funded"
+            );
+            if (fundedFirestoreStocks.length > 0) {
+              setFundedStarredStocks(fundedFirestoreStocks);
+              await saveStarredStocksToStorage(fundedFirestoreStocks, "Funded");
+            }
+          } catch (error) {
+            console.error(
+              "Error loading starred stocks from Firestore:",
+              error
+            );
+          }
+        }
       } catch (error) {
         console.error("Error loading trading data:", error);
         // Fallback to defaults
         setEvaluationPositions([]);
         setEvaluationOrders([]);
         setEvaluationBalance(DEFAULT_BALANCE);
+        setEvaluationStarredStocks([]);
         setFundedPositions([]);
         setFundedOrders([]);
         setFundedBalance(DEFAULT_BALANCE);
+        setFundedStarredStocks([]);
         setAccountMode("Evaluation");
       } finally {
         setLoading(false);
@@ -431,14 +537,107 @@ export function TradingProvider({ children }: TradingProviderProps) {
     }
   };
 
+  // Star a stock
+  const starStock = async (stock: { symbol: string; name: string }) => {
+    try {
+      // Add to Firestore if user is logged in
+      let stockId;
+      if (user) {
+        try {
+          stockId = await addStarredStock(user.uid, stock, accountMode);
+        } catch (error) {
+          console.error("Error adding starred stock to Firestore:", error);
+          // Generate a local ID
+          stockId = `local-${Date.now()}`;
+        }
+      } else {
+        // Generate a local ID
+        stockId = `local-${Date.now()}`;
+      }
+
+      // Create new starred stock object
+      const newStock: StarredStock = {
+        id: stockId,
+        symbol: stock.symbol,
+        name: stock.name,
+        addedAt: new Date().toISOString(),
+        accountMode: accountMode,
+      };
+
+      // Update local state based on account mode
+      if (accountMode === "Evaluation") {
+        const updatedStocks = [...evaluationStarredStocks, newStock];
+        setEvaluationStarredStocks(updatedStocks);
+        await saveStarredStocksToStorage(updatedStocks, "Evaluation");
+      } else {
+        const updatedStocks = [...fundedStarredStocks, newStock];
+        setFundedStarredStocks(updatedStocks);
+        await saveStarredStocksToStorage(updatedStocks, "Funded");
+      }
+    } catch (error) {
+      console.error("Error starring stock:", error);
+      throw error;
+    }
+  };
+
+  // Unstar a stock
+  const unstarStock = async (stockId: string) => {
+    try {
+      // Get the current starred stocks based on account mode
+      const currentStocks =
+        accountMode === "Evaluation"
+          ? evaluationStarredStocks
+          : fundedStarredStocks;
+
+      // Remove from local state
+      const updatedStocks = currentStocks.filter(
+        (stock) => stock.id !== stockId
+      );
+
+      // Update the appropriate state and storage
+      if (accountMode === "Evaluation") {
+        setEvaluationStarredStocks(updatedStocks);
+        await saveStarredStocksToStorage(updatedStocks, "Evaluation");
+      } else {
+        setFundedStarredStocks(updatedStocks);
+        await saveStarredStocksToStorage(updatedStocks, "Funded");
+      }
+
+      // Remove from Firestore if user is logged in
+      if (user) {
+        try {
+          await removeStarredStock(user.uid, stockId);
+        } catch (error) {
+          console.error("Error removing starred stock from Firestore:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error unstarring stock:", error);
+      throw error;
+    }
+  };
+
+  // Check if a stock is starred
+  const isStarred = (symbol: string) => {
+    const currentStocks =
+      accountMode === "Evaluation"
+        ? evaluationStarredStocks
+        : fundedStarredStocks;
+    return currentStocks.some((stock) => stock.symbol === symbol);
+  };
+
   return (
     <TradingContext.Provider
       value={{
         positions,
         orders,
+        starredStocks,
         addPosition,
         addOrder,
         closePosition,
+        starStock,
+        unstarStock,
+        isStarred,
         loading,
         balance,
         updateBalance,

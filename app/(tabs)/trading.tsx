@@ -59,6 +59,7 @@ export default function TradingScreen() {
     orders,
     closePosition,
     loading: tradingDataLoading,
+    starredStocks,
   } = useTradingContext();
 
   // State
@@ -813,29 +814,44 @@ export default function TradingScreen() {
             Trading
           </ThemedText>
         </View>
-        <TouchableOpacity
-          style={styles.alertButton}
-          onPress={() => setAlertsVisible(true)}
-        >
-          {alerts.some((alert) => alert.severity === "critical") && (
-            <View style={styles.alertBadge}>
-              <ThemedText style={styles.alertBadgeText}>
-                {alerts.length}
-              </ThemedText>
-            </View>
-          )}
-          <Ionicons
-            name="warning"
-            size={24}
-            color={
-              alerts.some((alert) => alert.severity === "critical")
-                ? "#EF4444"
-                : alerts.length > 0
-                ? "#EAB308"
-                : Colors[theme].primary
-            }
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.starredButton}
+            onPress={() => router.push("/starred-stocks")}
+          >
+            {starredStocks.length > 0 && (
+              <View style={styles.starredBadge}>
+                <ThemedText style={styles.starredBadgeText}>
+                  {starredStocks.length}
+                </ThemedText>
+              </View>
+            )}
+            <Ionicons name="star" size={24} color="#FFB800" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.alertButton}
+            onPress={() => setAlertsVisible(true)}
+          >
+            {alerts.some((alert) => alert.severity === "critical") && (
+              <View style={styles.alertBadge}>
+                <ThemedText style={styles.alertBadgeText}>
+                  {alerts.length}
+                </ThemedText>
+              </View>
+            )}
+            <Ionicons
+              name="warning"
+              size={24}
+              color={
+                alerts.some((alert) => alert.severity === "critical")
+                  ? "#EF4444"
+                  : alerts.length > 0
+                  ? "#EAB308"
+                  : Colors[theme].primary
+              }
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -1161,11 +1177,22 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "700",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   alertButton: {
     width: 40,
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+  },
+  starredButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
   },
   alertBadge: {
     position: "absolute",
@@ -1186,6 +1213,26 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
     paddingBottom: 1, // Slight adjustment to vertically center the text
+  },
+  starredBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    backgroundColor: "#FFB800",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  starredBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+    textAlign: "center",
+    lineHeight: 18,
+    paddingBottom: 1,
   },
 
   // Card styles

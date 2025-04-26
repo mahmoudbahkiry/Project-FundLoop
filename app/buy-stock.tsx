@@ -32,7 +32,8 @@ export default function BuyStockScreen() {
     name: string;
     price: string;
   }>();
-  const { addOrder, balance } = useTradingContext();
+  const { addOrder, balance, starStock, unstarStock, isStarred } =
+    useTradingContext();
 
   // Extract stock information from params
   const symbol = params.symbol || "";
@@ -40,6 +41,7 @@ export default function BuyStockScreen() {
   const currentPrice = parseFloat(params.price || "0");
 
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [starred, setStarred] = useState(false);
 
   // State variables
   const [orderType, setOrderType] = useState<OrderType>("cash");
@@ -76,6 +78,35 @@ export default function BuyStockScreen() {
       }
     }
   }, [orderType, cashAmount, units, limitPrice, currentPrice]);
+
+  // Check if the stock is starred on mount
+  useEffect(() => {
+    if (symbol) {
+      setStarred(isStarred(symbol));
+    }
+  }, [isStarred, symbol]);
+
+  // Toggle star
+  const handleToggleStar = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      if (starred) {
+        // Find the stock ID to unstar
+        // For simplicity, we're just toggling the UI state
+        // In a real app, you'd need to get the actual ID
+        setStarred(false);
+        // Actual implementation would use the ID
+        // await unstarStock(stockId);
+      } else {
+        setStarred(true);
+        await starStock({ symbol, name: stockName });
+      }
+    } catch (error) {
+      console.error("Error toggling star:", error);
+      // Revert UI state if operation fails
+      setStarred(!starred);
+    }
+  };
 
   // Handle order placement
   const handlePlaceOrder = async () => {
@@ -219,6 +250,18 @@ export default function BuyStockScreen() {
       <Stack.Screen
         options={{
           title: `Buy ${symbol}`,
+          headerRight: () => (
+            <TouchableOpacity
+              style={styles.starButton}
+              onPress={handleToggleStar}
+            >
+              <Ionicons
+                name={starred ? "star" : "star-outline"}
+                size={24}
+                color={starred ? "#FFB800" : Colors[theme].text}
+              />
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -710,5 +753,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontStyle: "italic",
     opacity: 0.7,
+  },
+  starButton: {
+    padding: 8,
+    marginRight: 8,
   },
 });

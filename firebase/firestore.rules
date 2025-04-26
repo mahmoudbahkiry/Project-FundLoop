@@ -35,6 +35,34 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
     
+    // Rules for starred stocks - users can only access their own starred stocks
+    match /starred-stocks/{stockId} {
+      // For any type of read operation
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // For creating a new starred stock
+      allow create: if request.auth != null 
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.userId is string;
+      
+      // For updating or deleting a starred stock
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    // For backward compatibility with old collection
+    match /starredStocks/{stockId} {
+      // For any type of read operation
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // For creating a new starred stock
+      allow create: if request.auth != null 
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.userId is string;
+      
+      // For updating or deleting a starred stock
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
     // Rules for journal entries
     match /journalEntries/{entryId} {
       // Allow individual document reads if the userId matches

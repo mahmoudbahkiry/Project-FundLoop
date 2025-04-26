@@ -22,6 +22,7 @@ import { LightModeView } from "@/components/LightModeView";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors } from "@/constants/Colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ProgressBar } from "@/components/ProgressBar";
 
 const { width } = Dimensions.get("window");
 
@@ -328,6 +329,7 @@ export default function SignupScreen() {
                 Your Trading Journey Starts Here
               </LightModeText>
             </View>
+            <ProgressBar step={1} />
           </View>
 
           <View>
@@ -339,7 +341,10 @@ export default function SignupScreen() {
               {/* First Name */}
               <View style={styles.inputContainer}>
                 <LightModeText style={styles.inputLabel}>
-                  First Name
+                  First Name{" "}
+                  <LightModeText style={styles.requiredIndicator}>
+                    *
+                  </LightModeText>
                 </LightModeText>
                 <TextInput
                   style={[
@@ -356,7 +361,10 @@ export default function SignupScreen() {
               {/* Last Name */}
               <View style={styles.inputContainer}>
                 <LightModeText style={styles.inputLabel}>
-                  Last Name
+                  Last Name{" "}
+                  <LightModeText style={styles.requiredIndicator}>
+                    *
+                  </LightModeText>
                 </LightModeText>
                 <TextInput
                   style={[
@@ -372,7 +380,12 @@ export default function SignupScreen() {
 
               {/* Email */}
               <View style={styles.inputContainer}>
-                <LightModeText style={styles.inputLabel}>Email</LightModeText>
+                <LightModeText style={styles.inputLabel}>
+                  Email{" "}
+                  <LightModeText style={styles.requiredIndicator}>
+                    *
+                  </LightModeText>
+                </LightModeText>
                 <TextInput
                   style={[
                     styles.input,
@@ -390,7 +403,10 @@ export default function SignupScreen() {
               {/* Password */}
               <View style={styles.inputContainer}>
                 <LightModeText style={styles.inputLabel}>
-                  Password
+                  Password{" "}
+                  <LightModeText style={styles.requiredIndicator}>
+                    *
+                  </LightModeText>
                 </LightModeText>
                 <View
                   style={[
@@ -423,7 +439,10 @@ export default function SignupScreen() {
               {/* Confirm Password */}
               <View style={styles.inputContainer}>
                 <LightModeText style={styles.inputLabel}>
-                  Confirm Password
+                  Confirm Password{" "}
+                  <LightModeText style={styles.requiredIndicator}>
+                    *
+                  </LightModeText>
                 </LightModeText>
                 <View
                   style={[
@@ -457,7 +476,10 @@ export default function SignupScreen() {
               {/* Phone Number */}
               <View style={styles.inputContainer}>
                 <LightModeText style={styles.inputLabel}>
-                  Phone Number
+                  Phone Number{" "}
+                  <LightModeText style={styles.requiredIndicator}>
+                    *
+                  </LightModeText>
                 </LightModeText>
                 <TextInput
                   style={[
@@ -475,7 +497,10 @@ export default function SignupScreen() {
               {/* Date of Birth */}
               <View style={styles.inputContainer}>
                 <LightModeText style={styles.inputLabel}>
-                  Date of Birth (Must be 18+)
+                  Date of Birth (Must be 18+){" "}
+                  <LightModeText style={styles.requiredIndicator}>
+                    *
+                  </LightModeText>
                 </LightModeText>
                 <TouchableOpacity
                   style={[styles.datePickerButton, { borderColor: iconColor }]}
@@ -745,7 +770,10 @@ export default function SignupScreen() {
                 type="subtitle"
                 style={[styles.sectionTitle, { marginTop: 20 }]}
               >
-                Agreements
+                Agreements{" "}
+                <LightModeText style={styles.requiredIndicator}>
+                  *
+                </LightModeText>
               </LightModeText>
 
               {/* Terms of Service */}
@@ -773,6 +801,9 @@ export default function SignupScreen() {
                       style={styles.linkText}
                     >
                       Terms of Service
+                    </LightModeText>{" "}
+                    <LightModeText style={styles.requiredIndicator}>
+                      *
                     </LightModeText>
                   </LightModeText>
                 </View>
@@ -803,6 +834,9 @@ export default function SignupScreen() {
                       style={styles.linkText}
                     >
                       Privacy Policy
+                    </LightModeText>{" "}
+                    <LightModeText style={styles.requiredIndicator}>
+                      *
                     </LightModeText>
                   </LightModeText>
                 </View>
@@ -833,6 +867,9 @@ export default function SignupScreen() {
                       style={styles.linkText}
                     >
                       Financial Risk Disclaimer
+                    </LightModeText>{" "}
+                    <LightModeText style={styles.requiredIndicator}>
+                      *
                     </LightModeText>
                   </LightModeText>
                 </View>

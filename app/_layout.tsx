@@ -107,6 +107,13 @@ function RootLayoutNav() {
         name="buy-stock"
         options={{ headerShown: true, title: "Buy Stock" }}
       />
+      <Stack.Screen
+        name="starred-stocks"
+        options={{
+          headerShown: true,
+          title: "Starred Stocks",
+        }}
+      />
       <Stack.Screen name="(withdraw)" options={{ headerShown: false }} />
     </Stack>
   );

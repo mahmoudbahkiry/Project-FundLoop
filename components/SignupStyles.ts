@@ -273,4 +273,28 @@ export const signupStyles = StyleSheet.create({
   bottomLink: {
     fontWeight: '600',
   },
+  requiredIndicator: {
+    color: 'red',
+    fontWeight: 'bold',
+  },
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 3,
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 5,
+    width: '90%',
+    alignSelf: 'center',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  progressStepText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 10,
+    color: '#666',
+  },
 });

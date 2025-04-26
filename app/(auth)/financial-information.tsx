@@ -19,6 +19,7 @@ import { LightModeView } from "@/components/LightModeView";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors } from "@/constants/Colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ProgressBar } from "@/components/ProgressBar";
 
 const { width } = Dimensions.get("window");
 
@@ -287,6 +288,7 @@ export default function FinancialInformationScreen() {
                 Final step to complete your profile
               </LightModeText>
             </View>
+            <ProgressBar step={3} />
           </View>
 
           <LightModeView variant="card" style={styles.formContainer}>

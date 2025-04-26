@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LineChart, CandlestickChart } from "react-native-wagmi-charts";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { useTradingContext } from "@/contexts/TradingContext";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -106,6 +107,8 @@ export default function StockDetailsScreen() {
     changePercent?: string;
     name?: string;
   }>();
+  const { starStock, unstarStock, isStarred, starredStocks } =
+    useTradingContext();
   const symbol = params.symbol || "COMI";
 
   // State
@@ -121,6 +124,7 @@ export default function StockDetailsScreen() {
   const [chartDataCache, setChartDataCache] = useState<
     Record<string, Record<string, ChartDataPoint[]>>
   >({});
+  const [starred, setStarred] = useState(false);
 
   // Company descriptions for each stock
   const companyDescriptions: Record<string, string> = {
@@ -426,6 +430,13 @@ export default function StockDetailsScreen() {
     }
   }, [timeframe, symbol, chartDataCache]);
 
+  // Check if stock is starred when component mounts or when starredStocks changes
+  useEffect(() => {
+    if (symbol) {
+      setStarred(isStarred(symbol));
+    }
+  }, [isStarred, symbol, starredStocks]);
+
   if (loading) {
     return (
       <View
@@ -466,9 +477,30 @@ export default function StockDetailsScreen() {
     return null;
   }
 
-  const toggleWatchlist = () => {
+  const toggleWatchlist = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsInWatchlist(!isInWatchlist);
+
+    try {
+      if (starred) {
+        // Find the stock ID to unstar
+        const starredStock = starredStocks.find(
+          (stock) => stock.symbol === symbol
+        );
+        if (starredStock?.id) {
+          await unstarStock(starredStock.id);
+        }
+      } else {
+        if (stockData) {
+          await starStock({
+            symbol: stockData.symbol,
+            name: stockData.name,
+          });
+        }
+      }
+      setStarred(!starred);
+    } catch (error) {
+      console.error("Error toggling star:", error);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -503,9 +535,9 @@ export default function StockDetailsScreen() {
     <>
       <Stack.Screen
         options={{
-          title: stockData.symbol,
+          title: stockData?.symbol || "Stock Details",
           headerRight: () => (
-            <View style={{ flexDirection: "row" }}>
+            <View style={styles.headerActions}>
               <TouchableOpacity
                 onPress={navigateToBuyScreen}
                 style={styles.buyButton}
@@ -513,13 +545,13 @@ export default function StockDetailsScreen() {
                 <ThemedText style={styles.buyButtonText}>Buy</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
+                style={styles.headerButton}
                 onPress={toggleWatchlist}
-                style={styles.watchlistButton}
               >
                 <Ionicons
-                  name={isInWatchlist ? "star" : "star-outline"}
+                  name={starred ? "star" : "star-outline"}
                   size={24}
-                  color={isInWatchlist ? "#FFD700" : Colors[theme].text}
+                  color={starred ? "#FFB800" : Colors[theme].text}
                 />
               </TouchableOpacity>
             </View>
@@ -1049,5 +1081,13 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "600",
     fontSize: 14,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerButton: {
+    padding: 8,
+    marginHorizontal: 4,
   },
 });

@@ -8,7 +8,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   ActivityIndicator,
   Alert,
   Image,
@@ -185,156 +184,150 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <LightModeView style={styles.container}>
-          <View style={styles.headerContainer}>
-            <View style={styles.textContainer}>
-              <LightModeText
-                type="heading"
-                style={[styles.title, { color: primaryColor }]}
-              >
-                FundLoop
-              </LightModeText>
-              <LightModeText style={styles.subtitle}>
-                Your Trading Journey Starts Here
-              </LightModeText>
-            </View>
+      <LightModeView style={[styles.container, styles.contentContainer]}>
+        <View style={styles.headerContainer}>
+          <View style={styles.textContainer}>
+            <LightModeText
+              type="heading"
+              style={[styles.title, { color: primaryColor }]}
+            >
+              FundLoop
+            </LightModeText>
+            <LightModeText style={styles.subtitle}>
+              Your Trading Journey Starts Here
+            </LightModeText>
           </View>
+        </View>
 
-          <View>
-            <LightModeView variant="card" style={styles.formContainer}>
-              <View style={styles.inputContainer}>
-                <LightModeText style={styles.inputLabel}>Email</LightModeText>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: textColor,
-                      borderColor: emailError ? "red" : iconColor,
-                    },
-                  ]}
-                  placeholder="Enter your email"
-                  placeholderTextColor={iconColor}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="username"
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    // Clear general error when user starts typing
-                    if (generalError) setGeneralError("");
-                    // Validate and potentially reset login attempt state
-                    if (emailError) validateEmail(text);
-                    // Reset login successful state when user modifies input
-                    setLoginSuccessful(false);
-                  }}
-                  onBlur={() => validateEmail(email)}
-                />
-                {emailError ? (
-                  <Text style={styles.errorText}>{emailError}</Text>
-                ) : null}
-              </View>
-
-              <View style={styles.inputContainer}>
-                <View style={styles.passwordLabelContainer}>
-                  <LightModeText style={styles.inputLabel}>
-                    Password
-                  </LightModeText>
-                  <TouchableOpacity onPress={navigateToForgotPassword}>
-                    <LightModeText type="link" style={styles.forgotPassword}>
-                      Forgot Password?
-                    </LightModeText>
-                  </TouchableOpacity>
-                </View>
-                <View
-                  style={[
-                    styles.passwordInputContainer,
-                    { borderColor: passwordError ? "red" : iconColor },
-                  ]}
-                >
-                  <TextInput
-                    style={[styles.passwordInput, { color: textColor }]}
-                    placeholder="Enter your password"
-                    placeholderTextColor={iconColor}
-                    secureTextEntry={!isPasswordVisible}
-                    autoComplete={loginSuccessful ? "current-password" : "off"}
-                    value={password}
-                    onChangeText={(text) => {
-                      setPassword(text);
-                      // Clear general error when user starts typing
-                      if (generalError) setGeneralError("");
-                      // Validate and potentially reset login attempt state
-                      if (passwordError) validatePassword(text);
-                      // Reset login successful state when user modifies input
-                      setLoginSuccessful(false);
-                    }}
-                    onBlur={() => validatePassword(password)}
-                  />
-                  <TouchableOpacity
-                    style={styles.visibilityToggle}
-                    onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-                  >
-                    <Ionicons
-                      name={isPasswordVisible ? "eye-off" : "eye"}
-                      size={24}
-                      color={iconColor}
-                    />
-                  </TouchableOpacity>
-                </View>
-                {passwordError ? (
-                  <Text style={styles.errorText}>{passwordError}</Text>
-                ) : null}
-              </View>
-
-              {generalError ? (
-                <View style={styles.generalErrorContainer}>
-                  <Text style={styles.errorText}>{generalError}</Text>
-                </View>
+        <View>
+          <LightModeView variant="card" style={styles.formContainer}>
+            <View style={styles.inputContainer}>
+              <LightModeText style={styles.inputLabel}>Email</LightModeText>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    color: textColor,
+                    borderColor: emailError ? "red" : iconColor,
+                  },
+                ]}
+                placeholder="Enter your email"
+                placeholderTextColor={iconColor}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="username"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  // Clear general error when user starts typing
+                  if (generalError) setGeneralError("");
+                  // Validate and potentially reset login attempt state
+                  if (emailError) validateEmail(text);
+                  // Reset login successful state when user modifies input
+                  setLoginSuccessful(false);
+                }}
+                onBlur={() => validateEmail(email)}
+              />
+              {emailError ? (
+                <Text style={styles.errorText}>{emailError}</Text>
               ) : null}
+            </View>
 
-              <TouchableOpacity
-                style={[styles.loginButton, { backgroundColor: primaryColor }]}
-                onPress={handleLogin}
-                disabled={isLoading}
-                activeOpacity={0.8}
-              >
-                <View style={styles.buttonContent}>
-                  {isLoading ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name="log-in-outline"
-                        size={20}
-                        color="white"
-                        style={styles.buttonIcon}
-                      />
-                      <LightModeText style={styles.loginButtonText}>
-                        Sign In
-                      </LightModeText>
-                    </>
-                  )}
-                </View>
-              </TouchableOpacity>
-
-              <View style={styles.bottomLinkContainer}>
-                <LightModeText style={styles.bottomLinkText}>
-                  Don't have an account?
+            <View style={styles.inputContainer}>
+              <View style={styles.passwordLabelContainer}>
+                <LightModeText style={styles.inputLabel}>
+                  Password
                 </LightModeText>
-                <TouchableOpacity onPress={navigateToSignup}>
-                  <LightModeText type="link" style={styles.bottomLink}>
-                    Sign Up
+                <TouchableOpacity onPress={navigateToForgotPassword}>
+                  <LightModeText type="link" style={styles.forgotPassword}>
+                    Forgot Password?
                   </LightModeText>
                 </TouchableOpacity>
               </View>
-            </LightModeView>
-          </View>
-        </LightModeView>
-      </ScrollView>
+              <View
+                style={[
+                  styles.passwordInputContainer,
+                  { borderColor: passwordError ? "red" : iconColor },
+                ]}
+              >
+                <TextInput
+                  style={[styles.passwordInput, { color: textColor }]}
+                  placeholder="Enter your password"
+                  placeholderTextColor={iconColor}
+                  secureTextEntry={!isPasswordVisible}
+                  autoComplete={loginSuccessful ? "current-password" : "off"}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    // Clear general error when user starts typing
+                    if (generalError) setGeneralError("");
+                    // Validate and potentially reset login attempt state
+                    if (passwordError) validatePassword(text);
+                    // Reset login successful state when user modifies input
+                    setLoginSuccessful(false);
+                  }}
+                  onBlur={() => validatePassword(password)}
+                />
+                <TouchableOpacity
+                  style={styles.visibilityToggle}
+                  onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                >
+                  <Ionicons
+                    name={isPasswordVisible ? "eye-off" : "eye"}
+                    size={24}
+                    color={iconColor}
+                  />
+                </TouchableOpacity>
+              </View>
+              {passwordError ? (
+                <Text style={styles.errorText}>{passwordError}</Text>
+              ) : null}
+            </View>
+
+            {generalError ? (
+              <View style={styles.generalErrorContainer}>
+                <Text style={styles.errorText}>{generalError}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.loginButton, { backgroundColor: primaryColor }]}
+              onPress={handleLogin}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <View style={styles.buttonContent}>
+                {isLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name="log-in-outline"
+                      size={20}
+                      color="white"
+                      style={styles.buttonIcon}
+                    />
+                    <LightModeText style={styles.loginButtonText}>
+                      Sign In
+                    </LightModeText>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.bottomLinkContainer}>
+              <LightModeText style={styles.bottomLinkText}>
+                Don't have an account?
+              </LightModeText>
+              <TouchableOpacity onPress={navigateToSignup}>
+                <LightModeText type="link" style={styles.bottomLink}>
+                  Sign Up
+                </LightModeText>
+              </TouchableOpacity>
+            </View>
+          </LightModeView>
+        </View>
+      </LightModeView>
     </KeyboardAvoidingView>
   );
 }
@@ -342,6 +335,9 @@ export default function LoginScreen() {
 // Use the imported styles
 const styles = {
   ...loginStyles,
+  contentContainer: {
+    padding: 20,
+  },
   errorText: {
     color: "red",
     fontSize: 12,

@@ -22,6 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Colors } from "@/constants/Colors";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ProgressBar } from "@/components/ProgressBar";
 
 const { width } = Dimensions.get("window");
 
@@ -269,6 +270,7 @@ export default function PersonalInformationScreen() {
                 Let's complete your profile
               </LightModeText>
             </View>
+            <ProgressBar step={2} />
           </View>
 
           <LightModeView variant="card" style={styles.formContainer}>
