@@ -74,11 +74,7 @@ export default function WithdrawScreen() {
           </View>
         </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollViewContent}
-        >
+        <View style={styles.contentContainer}>
           <ThemedView variant="elevated" style={styles.balanceCard}>
             <ThemedText style={styles.balanceLabel}>
               Available Balance
@@ -86,91 +82,116 @@ export default function WithdrawScreen() {
             <ThemedText style={styles.balanceAmount}>
               {balance.toLocaleString("en-US")} EGP
             </ThemedText>
-            <ThemedText style={styles.balanceNote}>
-              Withdrawals are processed within 1-3 business days
-            </ThemedText>
           </ThemedView>
 
           <ThemedText style={styles.formSectionTitle}>
             Select Withdrawal Method
           </ThemedText>
 
-          <ThemedView variant="elevated" style={styles.methodsCard}>
+          <View style={styles.methodsContainer}>
             <TouchableOpacity
-              style={styles.methodOption}
+              style={[
+                styles.methodCard,
+                { borderLeftColor: "#00B894", borderLeftWidth: 4 },
+              ]}
               onPress={() => navigateToMethod("instapay")}
+              activeOpacity={0.7}
             >
-              <View style={styles.methodIconContainer}>
+              <View
+                style={[
+                  styles.methodIconBg,
+                  { backgroundColor: "rgba(0, 184, 148, 0.12)" },
+                ]}
+              >
                 <Ionicons
-                  name="phone-portrait"
-                  size={24}
-                  color={Colors[theme].primary}
+                  name="phone-portrait-outline"
+                  size={28}
+                  color="#00B894"
                 />
               </View>
-              <View style={styles.methodTextContainer}>
-                <ThemedText style={styles.methodTitle}>Instapay</ThemedText>
-                <ThemedText style={styles.methodDescription}>
-                  Withdraw to your mobile wallet or bank account
+              <View style={styles.methodTextContent}>
+                <ThemedText style={styles.methodCardTitle}>Instapay</ThemedText>
+                <ThemedText style={styles.methodCardDescription}>
+                  Transfer to mobile wallet or bank account
                 </ThemedText>
               </View>
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={Colors[theme].text}
-              />
+              <View
+                style={[
+                  styles.arrowContainer,
+                  { backgroundColor: "rgba(0, 184, 148, 0.12)" },
+                ]}
+              >
+                <Ionicons name="chevron-forward" size={20} color="#00B894" />
+              </View>
             </TouchableOpacity>
 
-            <View style={styles.divider} />
-
             <TouchableOpacity
-              style={styles.methodOption}
+              style={[
+                styles.methodCard,
+                { borderLeftColor: "#0984E3", borderLeftWidth: 4 },
+              ]}
               onPress={() => navigateToMethod("bank")}
+              activeOpacity={0.7}
             >
-              <View style={styles.methodIconContainer}>
-                <Ionicons name="card" size={24} color={Colors[theme].primary} />
+              <View
+                style={[
+                  styles.methodIconBg,
+                  { backgroundColor: "rgba(9, 132, 227, 0.12)" },
+                ]}
+              >
+                <Ionicons name="card-outline" size={28} color="#0984E3" />
               </View>
-              <View style={styles.methodTextContainer}>
-                <ThemedText style={styles.methodTitle}>
+              <View style={styles.methodTextContent}>
+                <ThemedText style={styles.methodCardTitle}>
                   Bank Transfer
                 </ThemedText>
-                <ThemedText style={styles.methodDescription}>
-                  Withdraw directly to your bank card
+                <ThemedText style={styles.methodCardDescription}>
+                  Transfer directly to your bank card
                 </ThemedText>
               </View>
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={Colors[theme].text}
-              />
+              <View
+                style={[
+                  styles.arrowContainer,
+                  { backgroundColor: "rgba(9, 132, 227, 0.12)" },
+                ]}
+              >
+                <Ionicons name="chevron-forward" size={20} color="#0984E3" />
+              </View>
             </TouchableOpacity>
-
-            <View style={styles.divider} />
 
             <TouchableOpacity
-              style={styles.methodOption}
+              style={[
+                styles.methodCard,
+                { borderLeftColor: "#FDCB6E", borderLeftWidth: 4 },
+              ]}
               onPress={() => navigateToMethod("crypto")}
+              activeOpacity={0.7}
             >
-              <View style={styles.methodIconContainer}>
-                <Ionicons
-                  name="logo-bitcoin"
-                  size={24}
-                  color={Colors[theme].primary}
-                />
+              <View
+                style={[
+                  styles.methodIconBg,
+                  { backgroundColor: "rgba(253, 203, 110, 0.12)" },
+                ]}
+              >
+                <Ionicons name="logo-bitcoin" size={28} color="#FDCB6E" />
               </View>
-              <View style={styles.methodTextContainer}>
-                <ThemedText style={styles.methodTitle}>Crypto</ThemedText>
-                <ThemedText style={styles.methodDescription}>
-                  Withdraw to your cryptocurrency wallet
+              <View style={styles.methodTextContent}>
+                <ThemedText style={styles.methodCardTitle}>Crypto</ThemedText>
+                <ThemedText style={styles.methodCardDescription}>
+                  Transfer to cryptocurrency wallet
                 </ThemedText>
               </View>
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={Colors[theme].text}
-              />
+              <View
+                style={[
+                  styles.arrowContainer,
+                  { backgroundColor: "rgba(253, 203, 110, 0.12)" },
+                ]}
+              >
+                <Ionicons name="chevron-forward" size={20} color="#FDCB6E" />
+              </View>
             </TouchableOpacity>
-          </ThemedView>
-        </ScrollView>
+          </View>
+        </View>
       </ThemedView>
     </SafeAreaView>
   );
@@ -183,7 +204,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 0,
+    paddingBottom: 8,
   },
   header: {
     flexDirection: "row",
@@ -194,12 +215,9 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "700",
   },
-  scrollView: {
+  contentContainer: {
     flex: 1,
-  },
-  scrollViewContent: {
     paddingHorizontal: 16,
-    paddingBottom: 32,
   },
   balanceCard: {
     padding: 20,
@@ -214,56 +232,64 @@ const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: 32,
     fontWeight: "700",
-    marginBottom: 12,
+    marginBottom: 0,
     paddingTop: 8,
     lineHeight: 40,
   },
-  balanceNote: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
   formSectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 16,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 20,
     marginLeft: 4,
   },
-  methodsCard: {
-    borderRadius: 16,
-    overflow: "hidden",
-    marginBottom: 24,
+  methodsContainer: {
+    flexDirection: "column",
+    gap: 16,
   },
-  methodOption: {
+  methodCard: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 20,
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    position: "relative",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  methodIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "rgba(46, 204, 113, 0.1)",
+  methodIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
   },
-  methodTextContainer: {
+  methodTextContent: {
     flex: 1,
+    paddingRight: 20,
   },
-  methodTitle: {
+  methodCardTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 4,
   },
-  methodDescription: {
+  methodCardDescription: {
     fontSize: 14,
     opacity: 0.7,
+    lineHeight: 20,
   },
-  divider: {
-    height: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-    marginHorizontal: 16,
+  arrowContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
   },
   accessDeniedContainer: {
     flex: 1,

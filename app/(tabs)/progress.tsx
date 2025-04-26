@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Alert,
 } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -22,8 +23,19 @@ const screenWidth = Dimensions.get("window").width;
 export default function ProgressScreen() {
   const { currentTheme } = useTheme();
   const theme = currentTheme;
-  const { balance, accountMode } = useTradingContext();
+  const { balance, accountMode, setAccountMode } = useTradingContext();
   const [selectedTab, setSelectedTab] = useState("overview");
+
+  // Add useEffect to log account mode when component mounts
+  useEffect(() => {
+    console.log("ProgressScreen - Current account mode:", accountMode);
+  }, [accountMode]);
+
+  // Function to switch to Evaluation mode
+  const switchToEvaluationMode = () => {
+    setAccountMode("Evaluation");
+    console.log("Switched to Evaluation mode");
+  };
 
   // Mock data for the evaluation progress
   const evaluationProgress = {
@@ -535,6 +547,15 @@ export default function ProgressScreen() {
               This feature is only available for users in Evaluation mode.
               Switch your account mode to access the Progress tracking.
             </ThemedText>
+
+            <TouchableOpacity
+              style={styles.switchModeButton}
+              onPress={switchToEvaluationMode}
+            >
+              <ThemedText style={styles.switchModeButtonText}>
+                Switch to Evaluation Mode
+              </ThemedText>
+            </TouchableOpacity>
           </View>
         </ThemedView>
       </SafeAreaView>
@@ -879,5 +900,16 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginBottom: 24,
     lineHeight: 24,
+  },
+  switchModeButton: {
+    backgroundColor: "#FFC107",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  switchModeButtonText: {
+    color: "#000000",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

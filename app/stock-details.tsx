@@ -657,7 +657,6 @@ export default function StockDetailsScreen() {
                       positiveColor={Colors[theme].success}
                       negativeColor="#EF4444"
                       strokeWidth={2}
-                      rectWidth={10}
                     />
                     <CandlestickChart.Crosshair />
                   </CandlestickChart>

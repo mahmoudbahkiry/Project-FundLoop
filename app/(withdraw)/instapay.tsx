@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -70,97 +71,127 @@ export default function InstapayWithdrawScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-      <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={Colors[theme].text} />
-          </TouchableOpacity>
-          <ThemedText type="heading" style={styles.headerTitle}>
-            Instapay Withdrawal
-          </ThemedText>
-        </View>
-
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollViewContent}
-        >
-          <ThemedView variant="elevated" style={styles.balanceCard}>
-            <ThemedText style={styles.balanceLabel}>
-              Available Balance
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ThemedView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={Colors[theme].text}
+              />
+            </TouchableOpacity>
+            <ThemedText type="heading" style={styles.headerTitle}>
+              Instapay Withdrawal
             </ThemedText>
-            <ThemedText style={styles.balanceAmount}>
-              {balance.toLocaleString("en-US")} EGP
+          </View>
+
+          <View style={styles.contentContainer}>
+            <ThemedView variant="elevated" style={styles.balanceCard}>
+              <ThemedText style={styles.balanceLabel}>
+                Available Balance
+              </ThemedText>
+              <ThemedText style={styles.balanceAmount}>
+                {balance.toLocaleString("en-US")} EGP
+              </ThemedText>
+            </ThemedView>
+
+            <ThemedText style={styles.formSectionTitle}>
+              Withdrawal Details
             </ThemedText>
-          </ThemedView>
 
-          <ThemedText style={styles.formSectionTitle}>
-            Withdrawal Details
-          </ThemedText>
-
-          <ThemedView variant="elevated" style={styles.formCard}>
-            <View style={styles.formGroup}>
-              <ThemedText style={styles.formLabel}>Instapay Type</ThemedText>
-              <View style={styles.segmentedControl}>
-                <TouchableOpacity
-                  style={[
-                    styles.segmentOption,
-                    instapayType === "wallet" && styles.segmentOptionActive,
-                  ]}
-                  onPress={() => setInstapayType("wallet")}
-                >
-                  <Ionicons
-                    name="phone-portrait-outline"
-                    size={20}
-                    color={
-                      instapayType === "wallet" ? "#FFFFFF" : Colors[theme].text
-                    }
-                    style={styles.segmentIcon}
-                  />
-                  <ThemedText
+            <ThemedView variant="elevated" style={styles.formCard}>
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Instapay Type</ThemedText>
+                <View style={styles.segmentedControl}>
+                  <TouchableOpacity
                     style={[
-                      styles.segmentText,
-                      instapayType === "wallet" && styles.segmentTextActive,
+                      styles.segmentOption,
+                      instapayType === "wallet" && styles.segmentOptionActive,
                     ]}
+                    onPress={() => setInstapayType("wallet")}
                   >
-                    Mobile Wallet
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.segmentOption,
-                    instapayType === "account" && styles.segmentOptionActive,
-                  ]}
-                  onPress={() => setInstapayType("account")}
-                >
-                  <Ionicons
-                    name="card-outline"
-                    size={20}
-                    color={
-                      instapayType === "account"
-                        ? "#FFFFFF"
-                        : Colors[theme].text
-                    }
-                    style={styles.segmentIcon}
-                  />
-                  <ThemedText
+                    <Ionicons
+                      name="phone-portrait-outline"
+                      size={20}
+                      color={
+                        instapayType === "wallet"
+                          ? "#FFFFFF"
+                          : Colors[theme].text
+                      }
+                      style={styles.segmentIcon}
+                    />
+                    <ThemedText
+                      style={[
+                        styles.segmentText,
+                        instapayType === "wallet" && styles.segmentTextActive,
+                      ]}
+                    >
+                      Mobile Wallet
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={[
-                      styles.segmentText,
-                      instapayType === "account" && styles.segmentTextActive,
+                      styles.segmentOption,
+                      instapayType === "account" && styles.segmentOptionActive,
                     ]}
+                    onPress={() => setInstapayType("account")}
                   >
-                    Bank Account
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.formGroup}>
-              <ThemedText style={styles.formLabel}>Phone Number</ThemedText>
-              <View style={styles.phoneInputContainer}>
-                <View style={styles.countryCode}>
-                  <ThemedText style={styles.countryCodeText}>+20</ThemedText>
+                    <Ionicons
+                      name="card-outline"
+                      size={20}
+                      color={
+                        instapayType === "account"
+                          ? "#FFFFFF"
+                          : Colors[theme].text
+                      }
+                      style={styles.segmentIcon}
+                    />
+                    <ThemedText
+                      style={[
+                        styles.segmentText,
+                        instapayType === "account" && styles.segmentTextActive,
+                      ]}
+                    >
+                      Bank Account
+                    </ThemedText>
+                  </TouchableOpacity>
                 </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Phone Number</ThemedText>
+                <View style={styles.phoneInputContainer}>
+                  <View style={styles.countryCode}>
+                    <ThemedText style={styles.countryCodeText}>+20</ThemedText>
+                  </View>
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      styles.phoneInput,
+                      {
+                        color: Colors[theme].text,
+                        borderColor: "rgba(0,0,0,0.2)",
+                      },
+                    ]}
+                    placeholderTextColor={Colors[theme].text + "80"}
+                    placeholder="1XXXXXXXX"
+                    keyboardType="phone-pad"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    maxLength={10}
+                    textAlign="left"
+                  />
+                </View>
+                <ThemedText style={styles.inputHelp}>
+                  Enter your{" "}
+                  {instapayType === "wallet" ? "mobile wallet" : "bank account"}{" "}
+                  registered phone number
+                </ThemedText>
+              </View>
+
+              <View style={styles.formGroup}>
+                <ThemedText style={styles.formLabel}>Amount (EGP)</ThemedText>
                 <TextInput
                   style={[
                     styles.textInput,
@@ -170,65 +201,44 @@ export default function InstapayWithdrawScreen() {
                     },
                   ]}
                   placeholderTextColor={Colors[theme].text + "80"}
-                  placeholder="1XXXXXXXXX"
-                  keyboardType="phone-pad"
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  maxLength={11}
+                  placeholder="Enter amount"
+                  keyboardType="numeric"
+                  value={amount}
+                  onChangeText={setAmount}
                 />
+                <ThemedText style={styles.inputHelp}>
+                  Minimum withdrawal: 500 EGP
+                </ThemedText>
               </View>
-              <ThemedText style={styles.inputHelp}>
-                Enter your{" "}
-                {instapayType === "wallet" ? "mobile wallet" : "bank account"}{" "}
-                registered phone number
-              </ThemedText>
-            </View>
 
-            <View style={styles.formGroup}>
-              <ThemedText style={styles.formLabel}>Amount (EGP)</ThemedText>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  { color: Colors[theme].text, borderColor: "rgba(0,0,0,0.2)" },
-                ]}
-                placeholderTextColor={Colors[theme].text + "80"}
-                placeholder="Enter amount"
-                keyboardType="numeric"
-                value={amount}
-                onChangeText={setAmount}
-              />
-              <ThemedText style={styles.inputHelp}>
-                Minimum withdrawal: 500 EGP
-              </ThemedText>
-            </View>
+              <View style={styles.infoContainer}>
+                <Ionicons
+                  name="information-circle"
+                  size={20}
+                  color={Colors[theme].primary}
+                />
+                <ThemedText style={styles.infoText}>
+                  Withdrawals are processed within 1-3 business days. A small
+                  transaction fee may apply.
+                </ThemedText>
+              </View>
+            </ThemedView>
 
-            <View style={styles.infoContainer}>
-              <Ionicons
-                name="information-circle"
-                size={20}
-                color={Colors[theme].primary}
-              />
-              <ThemedText style={styles.infoText}>
-                Withdrawals are processed within 1-3 business days. A small
-                transaction fee may apply.
+            <TouchableOpacity
+              style={[
+                styles.withdrawButton,
+                isLoading && styles.withdrawButtonDisabled,
+              ]}
+              onPress={handleWithdraw}
+              disabled={isLoading}
+            >
+              <ThemedText style={styles.withdrawButtonText}>
+                {isLoading ? "Processing..." : "Withdraw Funds"}
               </ThemedText>
-            </View>
-          </ThemedView>
-
-          <TouchableOpacity
-            style={[
-              styles.withdrawButton,
-              isLoading && styles.withdrawButtonDisabled,
-            ]}
-            onPress={handleWithdraw}
-            disabled={isLoading}
-          >
-            <ThemedText style={styles.withdrawButtonText}>
-              {isLoading ? "Processing..." : "Withdraw Funds"}
-            </ThemedText>
-          </TouchableOpacity>
-        </ScrollView>
-      </ThemedView>
+            </TouchableOpacity>
+          </View>
+        </ThemedView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -249,17 +259,14 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
   },
-  scrollView: {
+  contentContainer: {
     flex: 1,
-  },
-  scrollViewContent: {
     paddingHorizontal: 16,
-    paddingBottom: 32,
   },
   balanceCard: {
-    padding: 20,
+    padding: 16,
     borderRadius: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   balanceLabel: {
     fontSize: 16,
@@ -267,21 +274,21 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   balanceAmount: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "700",
-    paddingTop: 8,
-    lineHeight: 40,
+    paddingTop: 4,
+    lineHeight: 36,
   },
   formSectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 16,
+    marginBottom: 12,
     marginLeft: 4,
   },
   formCard: {
     borderRadius: 16,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   formGroup: {
     marginBottom: 16,
@@ -324,6 +331,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 16,
+  },
+  phoneInput: {
+    width: 140,
+    fontFamily: "System",
+    letterSpacing: 0.5,
   },
   phoneInputContainer: {
     flexDirection: "row",

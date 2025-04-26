@@ -95,12 +95,19 @@ function RootLayoutNav() {
       }}
     >
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="(tabs)"
+        options={{
+          headerShown: false,
+          gestureEnabled: false, // Disable swipe back gesture for the tabs section
+        }}
+      />
       <Stack.Screen name="stock-details" options={{ headerShown: true }} />
       <Stack.Screen
         name="buy-stock"
         options={{ headerShown: true, title: "Buy Stock" }}
       />
+      <Stack.Screen name="(withdraw)" options={{ headerShown: false }} />
     </Stack>
   );
 }
