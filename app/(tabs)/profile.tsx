@@ -236,10 +236,17 @@ export default function Profile() {
                       { backgroundColor: Colors[theme].primary },
                     ]}
                   >
-                    <ThemedText style={styles.profileInitials}>
-                      {firstName.charAt(0)}
-                      {lastName.charAt(0)}
-                    </ThemedText>
+                    <Text
+                      style={{
+                        fontSize: 40,
+                        fontWeight: "bold",
+                        color: "white",
+                        lineHeight: 48,
+                        marginTop: 5,
+                      }}
+                    >
+                      {`${firstName.charAt(0)}${lastName.charAt(0)}`}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -580,10 +587,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  initialsContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: "60%",
+    height: "60%",
+    flexDirection: "row",
+  },
   profileInitials: {
     fontSize: 40,
     fontWeight: "bold",
     color: "white",
+    textAlign: "center",
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   changePhotoButton: {
     backgroundColor: Colors.light.primary,

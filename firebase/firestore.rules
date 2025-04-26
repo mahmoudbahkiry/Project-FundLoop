@@ -2,25 +2,50 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow users to read and write only their own data
+    // Allow users to access only their own data in the users collection
     match /users/{userId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Allow users to read and write only their own journal entries
-    // With simplified permissions for reading
+    // Simple rules for orders - users can only access their own orders
+    match /orders/{orderId} {
+      // For any type of read operation
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // For creating a new order
+      allow create: if request.auth != null 
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.userId is string;
+      
+      // For updating or deleting an order
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    // Simple rules for positions - users can only access their own positions
+    match /positions/{positionId} {
+      // For any type of read operation
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // For creating a new position
+      allow create: if request.auth != null 
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.userId is string;
+      
+      // For updating or deleting a position
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    // Rules for journal entries
     match /journalEntries/{entryId} {
       // Allow individual document reads if the userId matches
-      allow get: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow get: if request.auth != null && resource.data.userId == request.auth.uid;
       
       // Simplified list rule - only check that the user is authenticated
-      // This is more permissive but should resolve the current permission issues
       allow list: if request.auth != null;
       
-      // For write operations, still maintain strict controls
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      // For write operations, maintain strict controls
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
     
     // Default deny all

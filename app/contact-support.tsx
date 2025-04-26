@@ -179,6 +179,7 @@ export default function ContactSupportScreen() {
                   styles.supportOption,
                   { backgroundColor: Colors[currentTheme].background },
                 ]}
+                onPress={() => router.push("/faq")}
               >
                 <View
                   style={[
@@ -196,23 +197,6 @@ export default function ContactSupportScreen() {
                 </ThemedText>
               </TouchableOpacity>
             </View>
-          </View>
-
-          {/* Submit a Ticket */}
-          <View style={styles.ticketSection}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Submit a Support Ticket
-            </ThemedText>
-            <ThemedText style={styles.ticketDescription}>
-              For technical issues or account-related inquiries, our support
-              team is ready to help.
-            </ThemedText>
-            <ThemedButton
-              title="Create Support Ticket"
-              variant="primary"
-              onPress={() => {}}
-              style={styles.ticketButton}
-            />
           </View>
         </ThemedView>
 
@@ -354,17 +338,6 @@ const styles = StyleSheet.create({
   },
   supportOptionText: {
     textAlign: "center",
-  },
-  ticketSection: {
-    padding: 24,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.05)",
-  },
-  ticketDescription: {
-    marginBottom: 20,
-  },
-  ticketButton: {
-    paddingVertical: 14,
   },
   footer: {
     height: 100,

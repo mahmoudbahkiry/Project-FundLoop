@@ -236,6 +236,18 @@ export default function SettingsScreen() {
                 />
                 <ThemedText>Contact Support</ThemedText>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.supportOption}
+                onPress={() => router.push("/faq")}
+              >
+                <Ionicons
+                  name="help-circle-outline"
+                  size={24}
+                  color={Colors[currentTheme].primary}
+                  style={styles.supportIcon}
+                />
+                <ThemedText>FAQ</ThemedText>
+              </TouchableOpacity>
             </ThemedView>
           ),
           expanded: false,

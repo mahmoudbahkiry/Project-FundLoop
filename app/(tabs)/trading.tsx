@@ -17,6 +17,19 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { useTradingContext, Position, Order } from "@/contexts/TradingContext";
+
+// Format currency in EGP
+const formatCurrency = (value: number): string => {
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "EGP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
 
 // Types
 interface Stock {
@@ -30,28 +43,6 @@ interface Stock {
   ask?: number;
 }
 
-interface Position {
-  id: string;
-  symbol: string;
-  type: "buy" | "sell";
-  entryPrice: number;
-  currentPrice: number;
-  quantity: number;
-  openTime: string;
-}
-
-interface Order {
-  id: string;
-  symbol: string;
-  type: "buy" | "sell";
-  orderType: "market" | "limit" | "stop";
-  price: number;
-  quantity: number;
-  status: "filled" | "pending" | "cancelled";
-  time: string;
-  executionPrice?: number;
-}
-
 interface Alert {
   id: string;
   type: "drawdown" | "position" | "rule";
@@ -62,6 +53,13 @@ interface Alert {
 export default function TradingScreen() {
   const { currentTheme } = useTheme();
   const theme = currentTheme;
+  const router = useRouter();
+  const {
+    positions,
+    orders,
+    closePosition,
+    loading: tradingDataLoading,
+  } = useTradingContext();
 
   // State
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
@@ -71,6 +69,10 @@ export default function TradingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [liveStocks, setLiveStocks] = useState<Stock[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Sell confirmation modal state
+  const [sellConfirmVisible, setSellConfirmVisible] = useState(false);
+  const [positionToSell, setPositionToSell] = useState<Position | null>(null);
 
   // Mock data
   const mockStocks: Stock[] = [
@@ -226,94 +228,6 @@ export default function TradingScreen() {
     },
   ];
 
-  // Mock positions
-  const positions: Position[] = [
-    {
-      id: "1",
-      symbol: "COMI",
-      type: "buy",
-      entryPrice: 51.2,
-      currentPrice: 52.75,
-      quantity: 200,
-      openTime: "2025-03-08 10:15",
-    },
-    {
-      id: "2",
-      symbol: "HRHO",
-      type: "sell",
-      entryPrice: 18.5,
-      currentPrice: 18.3,
-      quantity: 500,
-      openTime: "2025-03-09 09:30",
-    },
-    {
-      id: "3",
-      symbol: "TMGH",
-      type: "buy",
-      entryPrice: 9.3,
-      currentPrice: 9.45,
-      quantity: 1000,
-      openTime: "2025-03-09 11:45",
-    },
-  ];
-
-  // Mock orders
-  const orders: Order[] = [
-    {
-      id: "ORD-25308-1",
-      symbol: "COMI",
-      type: "buy",
-      orderType: "market",
-      price: 51.2,
-      quantity: 200,
-      status: "filled",
-      time: "2025-03-08 10:15",
-      executionPrice: 51.22,
-    },
-    {
-      id: "ORD-25309-1",
-      symbol: "HRHO",
-      type: "sell",
-      orderType: "limit",
-      price: 18.5,
-      quantity: 500,
-      status: "filled",
-      time: "2025-03-09 09:30",
-      executionPrice: 18.5,
-    },
-    {
-      id: "ORD-25309-2",
-      symbol: "TMGH",
-      type: "buy",
-      orderType: "market",
-      price: 9.3,
-      quantity: 1000,
-      status: "filled",
-      time: "2025-03-09 11:45",
-      executionPrice: 9.32,
-    },
-    {
-      id: "ORD-25310-1",
-      symbol: "SWDY",
-      type: "buy",
-      orderType: "limit",
-      price: 12.75,
-      quantity: 300,
-      status: "pending",
-      time: "2025-03-10 09:15",
-    },
-    {
-      id: "ORD-25310-2",
-      symbol: "EAST",
-      type: "sell",
-      orderType: "stop",
-      price: 15.0,
-      quantity: 200,
-      status: "cancelled",
-      time: "2025-03-10 10:30",
-    },
-  ];
-
   // Mock alerts
   const alerts: Alert[] = [
     {
@@ -342,11 +256,15 @@ export default function TradingScreen() {
   }, []);
 
   // Handle manual refresh
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Simply reset to mock data
+    // Simply reset to mock data for stocks
     setLiveStocks(mockStocks);
-    setRefreshing(false);
+
+    // Wait a moment to simulate network request
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
   }, []);
 
   // Filter stocks based on search query
@@ -381,7 +299,21 @@ export default function TradingScreen() {
         styles.stockItem,
         selectedStock?.symbol === item.symbol && styles.selectedStockItem,
       ]}
-      onPress={() => setSelectedStock(item)}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setSelectedStock(item);
+        router.push({
+          pathname: "/stock-details",
+          params: {
+            symbol: item.symbol,
+            name: item.name,
+            price: item.lastPrice.toString(),
+            change: item.change.toString(),
+            changePercent: item.changePercent.toString(),
+          },
+        });
+      }}
+      activeOpacity={0.7}
     >
       <View style={styles.stockSymbolContainer}>
         <ThemedText type="defaultSemiBold">{item.symbol}</ThemedText>
@@ -396,7 +328,7 @@ export default function TradingScreen() {
       </View>
       <View style={styles.stockPriceContainer}>
         <ThemedText type="defaultSemiBold">
-          {item.lastPrice.toFixed(2)}
+          {formatCurrency(item.lastPrice)}
         </ThemedText>
         <ThemedText
           style={[
@@ -418,63 +350,123 @@ export default function TradingScreen() {
     const isProfitable = pnl > 0;
 
     return (
-      <ThemedView variant="innerCard" style={styles.positionItem}>
-        <View style={styles.positionHeader}>
-          <View style={styles.positionSymbolContainer}>
-            <ThemedText type="defaultSemiBold">{item.symbol}</ThemedText>
-            <View
+      <ThemedView
+        variant="innerCard"
+        style={[
+          styles.positionItem,
+          { borderLeftColor: Colors[theme].primary },
+        ]}
+      >
+        {/* Top Section: Symbol, Type Badge, and Performance */}
+        <View style={styles.positionTop}>
+          <View style={styles.positionTopLeft}>
+            <View style={styles.positionSymbolContainer}>
+              <ThemedText type="heading" style={styles.positionSymbol}>
+                {item.symbol}
+              </ThemedText>
+              <View
+                style={[
+                  styles.positionTypeBadge,
+                  {
+                    backgroundColor:
+                      item.type === "buy"
+                        ? "rgba(0, 168, 107, 0.1)"
+                        : "rgba(239, 68, 68, 0.1)",
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={{
+                    color:
+                      item.type === "buy" ? Colors[theme].success : "#EF4444",
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}
+                >
+                  {item.type.toUpperCase()}
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText style={styles.positionQuantity}>
+              {item.quantity} shares
+            </ThemedText>
+          </View>
+          <View style={styles.positionTopRight}>
+            <ThemedText
               style={[
-                styles.positionTypeBadge,
+                styles.positionPnL,
                 {
-                  backgroundColor:
-                    item.type === "buy"
-                      ? "rgba(0, 168, 107, 0.1)"
-                      : "rgba(239, 68, 68, 0.1)",
+                  color: isProfitable ? Colors[theme].success : "#EF4444",
                 },
               ]}
             >
-              <ThemedText
-                style={{
-                  color:
-                    item.type === "buy" ? Colors[theme].success : "#EF4444",
-                  fontSize: 12,
-                  fontWeight: "600",
-                }}
-              >
-                {item.type.toUpperCase()}
-              </ThemedText>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.closePositionButton}>
-            <ThemedText style={styles.closeButtonText}>Close</ThemedText>
-          </TouchableOpacity>
-        </View>
-
-        <ThemedView variant="innerCard" style={styles.positionDetails}>
-          <View style={styles.positionDetail}>
-            <ThemedText type="caption">Entry</ThemedText>
-            <ThemedText>{item.entryPrice.toFixed(2)}</ThemedText>
-          </View>
-          <View style={styles.positionDetail}>
-            <ThemedText type="caption">Current</ThemedText>
-            <ThemedText>{item.currentPrice.toFixed(2)}</ThemedText>
-          </View>
-          <View style={styles.positionDetail}>
-            <ThemedText type="caption">Quantity</ThemedText>
-            <ThemedText>{item.quantity}</ThemedText>
-          </View>
-          <View style={styles.positionDetail}>
-            <ThemedText type="caption">P/L</ThemedText>
+              {isProfitable ? "+" : ""}
+              {formatCurrency(pnl)}
+            </ThemedText>
             <ThemedText
-              style={{
-                color: isProfitable ? Colors[theme].success : "#EF4444",
-              }}
+              style={[
+                styles.positionPnLPercent,
+                {
+                  color: isProfitable ? Colors[theme].success : "#EF4444",
+                },
+              ]}
             >
               {isProfitable ? "+" : ""}
-              {pnl.toFixed(2)} ({pnlPercent.toFixed(2)}%)
+              {pnlPercent.toFixed(2)}%
             </ThemedText>
           </View>
-        </ThemedView>
+        </View>
+
+        {/* Middle Section: Prices */}
+        <View style={styles.positionPrices}>
+          <View style={styles.priceItem}>
+            <ThemedText type="caption">Entry Price</ThemedText>
+            <ThemedText style={styles.priceValue}>
+              {formatCurrency(item.entryPrice)}
+            </ThemedText>
+          </View>
+          <View style={styles.priceIndicator}>
+            <Ionicons
+              name={isProfitable ? "arrow-up" : "arrow-down"}
+              size={20}
+              color={isProfitable ? Colors[theme].success : "#EF4444"}
+            />
+          </View>
+          <View style={styles.priceItem}>
+            <ThemedText type="caption">Current Price</ThemedText>
+            <ThemedText style={styles.priceValue}>
+              {formatCurrency(item.currentPrice)}
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Bottom Section: Date and Sell Button */}
+        <View style={styles.positionBottom}>
+          <ThemedText type="caption" style={styles.positionDate}>
+            Opened{" "}
+            {new Date(item.openTime).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </ThemedText>
+          <TouchableOpacity
+            style={[styles.sellButton, { backgroundColor: "#EF4444" }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setPositionToSell(item);
+              setSellConfirmVisible(true);
+            }}
+          >
+            <Ionicons
+              name="cash-outline"
+              size={16}
+              color="white"
+              style={{ marginRight: 4 }}
+            />
+            <ThemedText style={styles.sellButtonText}>Sell</ThemedText>
+          </TouchableOpacity>
+        </View>
       </ThemedView>
     );
   };
@@ -551,31 +543,59 @@ export default function TradingScreen() {
   // Render order item
   const renderOrderItem = ({ item }: { item: Order }) => {
     const formattedTime = formatOrderTime(item.time);
+    const statusColor =
+      item.status === "filled"
+        ? Colors[theme].success
+        : item.status === "pending"
+        ? "#EAB308"
+        : "#EF4444";
+
+    const orderTypeColor =
+      item.type === "buy" ? Colors[theme].success : "#EF4444";
 
     return (
-      <ThemedView variant="innerCard" style={styles.orderItem}>
-        <View style={styles.orderHeader}>
-          <View style={styles.orderHeaderLeft}>
-            <ThemedText type="defaultSemiBold">{item.symbol}</ThemedText>
+      <ThemedView
+        variant="innerCard"
+        style={[
+          styles.orderItem,
+          { borderLeftWidth: 4, borderLeftColor: Colors[theme].primary },
+        ]}
+      >
+        {/* Top Section: Symbol, Type/Status, and Time */}
+        <View style={styles.orderTop}>
+          <View style={styles.orderTopLeft}>
+            <ThemedText type="heading" style={styles.orderSymbol}>
+              {item.symbol}
+            </ThemedText>
             <View style={styles.orderTypeContainer}>
-              <ThemedText
-                style={{
-                  color:
-                    item.type === "buy" ? Colors[theme].success : "#EF4444",
-                  fontSize: 13,
-                  fontWeight: "600",
-                  marginRight: 6,
-                }}
+              <View
+                style={[
+                  styles.orderTypeBadge,
+                  {
+                    backgroundColor:
+                      item.type === "buy"
+                        ? "rgba(0, 168, 107, 0.1)"
+                        : "rgba(239, 68, 68, 0.1)",
+                  },
+                ]}
               >
-                {item.type.toUpperCase()}
-              </ThemedText>
+                <ThemedText
+                  style={{
+                    color: orderTypeColor,
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}
+                >
+                  {item.type.toUpperCase()}
+                </ThemedText>
+              </View>
               <ThemedText type="caption" style={styles.orderTypeLabel}>
                 {item.orderType}
               </ThemedText>
             </View>
           </View>
 
-          <View style={styles.orderHeaderRight}>
+          <View style={styles.orderTopRight}>
             <View
               style={[
                 styles.orderStatusBadge,
@@ -597,25 +617,14 @@ export default function TradingScreen() {
                     ? "time"
                     : "close-circle"
                 }
-                size={12}
-                color={
-                  item.status === "filled"
-                    ? Colors[theme].success
-                    : item.status === "pending"
-                    ? "#EAB308"
-                    : "#EF4444"
-                }
+                size={16}
+                color={statusColor}
                 style={{ marginRight: 4 }}
               />
               <ThemedText
                 style={{
-                  color:
-                    item.status === "filled"
-                      ? Colors[theme].success
-                      : item.status === "pending"
-                      ? "#EAB308"
-                      : "#EF4444",
-                  fontSize: 12,
+                  color: statusColor,
+                  fontSize: 13,
                   fontWeight: "600",
                 }}
               >
@@ -629,9 +638,31 @@ export default function TradingScreen() {
           </View>
         </View>
 
-        <View style={styles.orderDivider} />
+        {/* Middle Section: Price and Quantity */}
+        <View style={styles.orderMiddle}>
+          <View style={styles.priceQuantityContainer}>
+            <View style={styles.orderValueItem}>
+              <ThemedText type="caption">Price</ThemedText>
+              <ThemedText style={styles.orderValueText}>
+                {formatCurrency(
+                  item.status === "filled" && item.executionPrice
+                    ? item.executionPrice
+                    : item.price
+                )}
+              </ThemedText>
+            </View>
 
-        <ThemedView variant="innerCard" style={styles.orderDetails}>
+            <View style={styles.orderValueItem}>
+              <ThemedText type="caption">Quantity</ThemedText>
+              <ThemedText style={styles.orderValueText}>
+                {item.quantity.toLocaleString()} shares
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+
+        {/* Bottom Section: Order Details */}
+        <View style={styles.orderBottom}>
           <View style={styles.orderDetail}>
             <ThemedText type="caption">Order ID</ThemedText>
             <ThemedText
@@ -642,49 +673,20 @@ export default function TradingScreen() {
               {item.id}
             </ThemedText>
           </View>
-          <View style={styles.orderDetail}>
-            <ThemedText type="caption">Quantity</ThemedText>
+
+          <View style={styles.orderTotalValue}>
+            <ThemedText type="caption">Total Value</ThemedText>
             <ThemedText
-              style={styles.orderDetailValue}
-              numberOfLines={1}
-              ellipsizeMode="tail"
+              style={[styles.orderTotalText, { color: orderTypeColor }]}
             >
-              {item.quantity.toLocaleString()}
-            </ThemedText>
-          </View>
-          <View style={styles.orderDetail}>
-            <ThemedText type="caption">
-              {item.status === "filled" ? "Execution Price" : "Price"}
-            </ThemedText>
-            <ThemedText
-              style={styles.orderDetailValue}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {(item.status === "filled" && item.executionPrice
-                ? item.executionPrice
-                : item.price
-              ).toFixed(2)}
-            </ThemedText>
-          </View>
-          <View style={styles.orderDetail}>
-            <ThemedText type="caption">Value</ThemedText>
-            <ThemedText
-              style={styles.orderDetailValue}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {(
+              {formatCurrency(
                 (item.status === "filled" && item.executionPrice
                   ? item.executionPrice
                   : item.price) * item.quantity
-              ).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              )}
             </ThemedText>
           </View>
-        </ThemedView>
+        </View>
       </ThemedView>
     );
   };
@@ -720,6 +722,88 @@ export default function TradingScreen() {
       </View>
     </ThemedView>
   );
+
+  // Render positions and orders sections with loading states
+  const renderPositionsSection = () => {
+    if (tradingDataLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors[theme].primary} />
+          <ThemedText style={styles.loadingText}>
+            Loading positions...
+          </ThemedText>
+        </View>
+      );
+    }
+
+    if (positions.length === 0) {
+      return (
+        <ThemedView variant="card" style={styles.emptyState}>
+          <Ionicons
+            name="wallet-outline"
+            size={32}
+            color={Colors[theme].icon}
+          />
+          <ThemedText style={styles.emptyStateText}>
+            No open positions
+          </ThemedText>
+        </ThemedView>
+      );
+    }
+
+    return positions.map((position) => (
+      <React.Fragment key={position.id}>
+        {renderPositionItem({ item: position })}
+      </React.Fragment>
+    ));
+  };
+
+  const renderOrdersSection = () => {
+    if (tradingDataLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors[theme].primary} />
+          <ThemedText style={styles.loadingText}>
+            Loading order history...
+          </ThemedText>
+        </View>
+      );
+    }
+
+    if (orders.length === 0) {
+      return (
+        <ThemedView variant="card" style={styles.emptyState}>
+          <Ionicons
+            name="document-text-outline"
+            size={32}
+            color={Colors[theme].icon}
+          />
+          <ThemedText style={styles.emptyStateText}>
+            No order history
+          </ThemedText>
+        </ThemedView>
+      );
+    }
+
+    return groupOrdersByDate(orders).map((group, index) => (
+      <View key={index} style={styles.orderGroup}>
+        <View style={styles.orderGroupHeader}>
+          <ThemedText type="defaultSemiBold" style={styles.orderGroupTitle}>
+            {group.title}
+          </ThemedText>
+          <ThemedText type="caption" style={styles.orderGroupCount}>
+            {group.data.length} {group.data.length === 1 ? "order" : "orders"}
+          </ThemedText>
+        </View>
+
+        {group.data.map((order) => (
+          <React.Fragment key={order.id}>
+            {renderOrderItem({ item: order })}
+          </React.Fragment>
+        ))}
+      </View>
+    ));
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -872,63 +956,10 @@ export default function TradingScreen() {
 
           {activeTab === "positions" ? (
             <View style={styles.positionsContainer}>
-              {positions.length > 0 ? (
-                positions.map((position) => (
-                  <React.Fragment key={position.id}>
-                    {renderPositionItem({ item: position })}
-                  </React.Fragment>
-                ))
-              ) : (
-                <ThemedView variant="card" style={styles.emptyState}>
-                  <Ionicons
-                    name="wallet-outline"
-                    size={32}
-                    color={Colors[theme].icon}
-                  />
-                  <ThemedText style={styles.emptyStateText}>
-                    No open positions
-                  </ThemedText>
-                </ThemedView>
-              )}
+              {renderPositionsSection()}
             </View>
           ) : (
-            <View style={styles.ordersContainer}>
-              {orders.length > 0 ? (
-                groupOrdersByDate(orders).map((group, index) => (
-                  <View key={index} style={styles.orderGroup}>
-                    <View style={styles.orderGroupHeader}>
-                      <ThemedText
-                        type="defaultSemiBold"
-                        style={styles.orderGroupTitle}
-                      >
-                        {group.title}
-                      </ThemedText>
-                      <ThemedText type="caption" style={styles.orderGroupCount}>
-                        {group.data.length}{" "}
-                        {group.data.length === 1 ? "order" : "orders"}
-                      </ThemedText>
-                    </View>
-
-                    {group.data.map((order) => (
-                      <React.Fragment key={order.id}>
-                        {renderOrderItem({ item: order })}
-                      </React.Fragment>
-                    ))}
-                  </View>
-                ))
-              ) : (
-                <ThemedView variant="card" style={styles.emptyState}>
-                  <Ionicons
-                    name="document-text-outline"
-                    size={32}
-                    color={Colors[theme].icon}
-                  />
-                  <ThemedText style={styles.emptyStateText}>
-                    No order history
-                  </ThemedText>
-                </ThemedView>
-              )}
-            </View>
+            <View style={styles.ordersContainer}>{renderOrdersSection()}</View>
           )}
         </ThemedView>
       </ScrollView>
@@ -969,6 +1000,132 @@ export default function TradingScreen() {
                 </ThemedView>
               )}
             </ScrollView>
+          </ThemedView>
+        </View>
+      </Modal>
+
+      {/* Sell Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={sellConfirmVisible}
+        onRequestClose={() => setSellConfirmVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <ThemedView style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle" style={styles.modalTitle}>
+                Confirm Sell Order
+              </ThemedText>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setSellConfirmVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={Colors[theme].icon} />
+              </TouchableOpacity>
+            </View>
+
+            {positionToSell && (
+              <View style={styles.sellModalContent}>
+                <ThemedText style={styles.confirmText}>
+                  Are you sure you want to sell{" "}
+                  <ThemedText style={styles.highlightText}>
+                    {positionToSell.quantity}
+                  </ThemedText>{" "}
+                  shares of{" "}
+                  <ThemedText style={styles.symbolText}>
+                    {positionToSell.symbol}
+                  </ThemedText>
+                  ?
+                </ThemedText>
+
+                <View style={styles.sellDetailsCard}>
+                  <View style={styles.sellDetailRow}>
+                    <ThemedText style={styles.sellDetailLabel}>
+                      Entry Price:
+                    </ThemedText>
+                    <ThemedText style={styles.sellDetailValue}>
+                      {formatCurrency(positionToSell.entryPrice)}
+                    </ThemedText>
+                  </View>
+
+                  <View style={styles.sellDetailRow}>
+                    <ThemedText style={styles.sellDetailLabel}>
+                      Current Price:
+                    </ThemedText>
+                    <ThemedText style={styles.sellDetailValue}>
+                      {formatCurrency(positionToSell.currentPrice)}
+                    </ThemedText>
+                  </View>
+
+                  <View style={styles.sellDetailRow}>
+                    <ThemedText style={styles.sellDetailLabel}>
+                      Profit/Loss:
+                    </ThemedText>
+                    {(() => {
+                      const pnl =
+                        positionToSell.type === "buy"
+                          ? (positionToSell.currentPrice -
+                              positionToSell.entryPrice) *
+                            positionToSell.quantity
+                          : (positionToSell.entryPrice -
+                              positionToSell.currentPrice) *
+                            positionToSell.quantity;
+                      const isProfitable = pnl > 0;
+                      return (
+                        <ThemedText
+                          style={[
+                            styles.sellDetailValue,
+                            {
+                              color: isProfitable
+                                ? Colors[theme].success
+                                : "#EF4444",
+                            },
+                          ]}
+                        >
+                          {isProfitable ? "+" : ""}
+                          {formatCurrency(pnl)}
+                        </ThemedText>
+                      );
+                    })()}
+                  </View>
+
+                  <View style={[styles.sellDetailRow, styles.totalValueRow]}>
+                    <ThemedText style={styles.totalValueLabel}>
+                      Total Value:
+                    </ThemedText>
+                    <ThemedText style={styles.totalValueAmount}>
+                      {formatCurrency(
+                        positionToSell.currentPrice * positionToSell.quantity
+                      )}
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setSellConfirmVisible(false)}
+              >
+                <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (positionToSell?.id) {
+                    closePosition(positionToSell.id);
+                  }
+                  setSellConfirmVisible(false);
+                }}
+              >
+                <ThemedText style={styles.confirmButtonText}>
+                  Confirm
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           </ThemedView>
         </View>
       </Modal>
@@ -1141,7 +1298,7 @@ const styles = StyleSheet.create({
 
   // Positions and orders styles
   positionsContainer: {
-    gap: 12,
+    gap: 16,
   },
   ordersContainer: {
     gap: 16,
@@ -1163,57 +1320,106 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   positionItem: {
-    padding: 12,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.light.primary,
   },
-  positionHeader: {
+  positionTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  positionTopLeft: {
+    flex: 1,
+  },
+  positionTopRight: {
+    alignItems: "flex-end",
   },
   positionSymbolContainer: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 4,
+  },
+  positionSymbol: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  positionQuantity: {
+    fontSize: 14,
+    opacity: 0.7,
   },
   positionTypeBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 6,
     marginLeft: 8,
   },
-  closePositionButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
+  positionPnL: {
+    fontSize: 18,
+    fontWeight: "700",
   },
-  closeButtonText: {
-    fontSize: 12,
-    fontWeight: "500",
+  positionPnLPercent: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 2,
   },
-  positionDetails: {
+  positionPrices: {
     flexDirection: "row",
     justifyContent: "space-between",
-  },
-  positionDetail: {
     alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  priceItem: {
+    flex: 1,
+  },
+  priceValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  priceIndicator: {
+    width: 40,
+    alignItems: "center",
+  },
+  positionBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  positionDate: {
+    opacity: 0.6,
+  },
+  sellButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  sellButtonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 14,
   },
   orderItem: {
     padding: 14,
     borderRadius: 12,
     marginBottom: 10,
   },
-  orderHeader: {
+  orderTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
-  orderHeaderLeft: {
+  orderTopLeft: {
     flexDirection: "column",
     alignItems: "flex-start",
   },
-  orderHeaderRight: {
+  orderTopRight: {
     flexDirection: "column",
     alignItems: "flex-end",
   },
@@ -1222,8 +1428,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
+  orderSymbol: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  orderTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginRight: 8,
+  },
   orderTypeLabel: {
-    textTransform: "capitalize",
     opacity: 0.7,
   },
   orderStatusBadge: {
@@ -1238,15 +1453,30 @@ const styles = StyleSheet.create({
     marginTop: 2,
     opacity: 0.7,
   },
-  orderDivider: {
-    height: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-    marginVertical: 12,
-  },
-  orderDetails: {
+  orderMiddle: {
     flexDirection: "row",
-    flexWrap: "wrap",
     justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  priceQuantityContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  orderValueItem: {
+    flex: 1,
+  },
+  orderValueText: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  orderBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
   },
   orderDetail: {
     alignItems: "flex-start",
@@ -1257,6 +1487,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: "500",
     flexShrink: 1,
+  },
+  orderTotalValue: {
+    alignItems: "flex-end",
+  },
+  orderTotalText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
 
   // Alert styles
@@ -1289,22 +1526,35 @@ const styles = StyleSheet.create({
   // Modal styles
   modalContainer: {
     flex: 1,
-    justifyContent: "flex-end",
+    justifyContent: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+    paddingHorizontal: 20,
   },
   modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 16,
     paddingTop: 20,
-    paddingBottom: 30,
+    paddingBottom: 24,
     maxHeight: "80%",
   },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 0,
+    right: 10,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
   },
   alertsContainer: {
     paddingHorizontal: 20,
@@ -1314,5 +1564,118 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 12,
+  },
+
+  // Add new styles for loading states
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    opacity: 0.7,
+  },
+
+  // Sell confirmation modal styles
+  sellModalContent: {
+    paddingHorizontal: 24,
+  },
+  sellDetailsCard: {
+    marginVertical: 20,
+    padding: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.03)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.08)",
+  },
+  sellDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  sellDetailLabel: {
+    fontWeight: "500",
+    opacity: 0.7,
+    fontSize: 14,
+  },
+  sellDetailValue: {
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  symbolText: {
+    fontWeight: "700",
+    color: Colors.light.primary,
+  },
+  highlightText: {
+    fontWeight: "700",
+  },
+  confirmText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  totalValueRow: {
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 0, 0, 0.08)",
+    paddingTop: 12,
+    marginTop: 4,
+  },
+  totalValueLabel: {
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  totalValueAmount: {
+    fontWeight: "700",
+    fontSize: 16,
+  },
+
+  // Button styles
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10,
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: "#F1F1F1",
+    alignItems: "center",
+    maxWidth: 140,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.08)",
+  },
+  cancelButtonText: {
+    color: "#555555",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    maxWidth: 140,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  confirmButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

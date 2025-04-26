@@ -2,10 +2,14 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { Colors } from "@/constants/Colors";
+import { useTradingContext } from "@/contexts/TradingContext";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
+  const { accountMode } = useTradingContext();
+  const isFunded = accountMode === "Funded";
+  const isEvaluation = accountMode === "Evaluation";
 
   return (
     <Tabs
@@ -34,7 +38,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
+          title: "Home",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="grid" size={size} color={color} />
           ),
@@ -61,6 +65,30 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="analytics" size={size} color={color} />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="progress"
+        options={{
+          title: "Progress",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="timer-outline" size={size} color={color} />
+          ),
+          // Only show the Progress tab in Evaluation mode
+          href: isEvaluation ? undefined : null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="withdraw"
+        options={{
+          title: "Withdraw",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cash-outline" size={size} color={color} />
+          ),
+          // Only show the Withdraw tab in Funded mode
+          href: isFunded ? undefined : null,
         }}
       />
 
