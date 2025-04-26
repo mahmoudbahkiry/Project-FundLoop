@@ -21,6 +21,7 @@ import { LightModeText } from "@/components/LightModeText";
 import { LightModeView } from "@/components/LightModeView";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors } from "@/constants/Colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get("window");
 
@@ -128,7 +129,6 @@ export default function SignupScreen() {
   const [dateOfBirth, setDateOfBirth] = useState(new Date(2000, 0, 1));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tradingExperience, setTradingExperience] = useState("");
-  const [occupation, setOccupation] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [riskAccepted, setRiskAccepted] = useState(false);
@@ -159,7 +159,7 @@ export default function SignupScreen() {
     "Expert (5+ years)",
   ];
 
-  const handleSignup = async () => {
+  const handleNextStep = () => {
     // Validate required fields
     if (
       !firstName ||
@@ -209,6 +209,41 @@ export default function SignupScreen() {
       return;
     }
 
+    // Store user data in AsyncStorage for retrieval on the next screen
+    try {
+      const userData = {
+        firstName,
+        lastName,
+        email,
+        password,
+        phoneNumber,
+        dateOfBirth: dateOfBirth.toISOString(),
+        tradingExperience,
+      };
+      AsyncStorage.setItem("signupData", JSON.stringify(userData))
+        .then(() => {
+          console.log("Data saved, navigating to personal information");
+          // Navigate to personal information page using a simple string path
+          router.push("/(auth)/personal-information");
+        })
+        .catch((error) => {
+          console.error("Error saving data:", error);
+          Alert.alert(
+            "Error",
+            "There was a problem proceeding to the next step. Please try again."
+          );
+        });
+    } catch (error) {
+      console.error("Error in navigation:", error);
+      Alert.alert(
+        "Error",
+        "There was a problem proceeding to the next step. Please try again."
+      );
+    }
+  };
+
+  const handleSignup = async () => {
+    // This function is kept for reference but no longer used directly
     try {
       setIsLoading(true);
       // Pass all user data to signUp method
@@ -219,8 +254,7 @@ export default function SignupScreen() {
         password,
         phoneNumber,
         dateOfBirth,
-        tradingExperience,
-        occupation
+        tradingExperience
       );
       router.replace("/(tabs)");
     } catch (error: any) {
@@ -707,23 +741,6 @@ export default function SignupScreen() {
                 )}
               </View>
 
-              {/* Occupation */}
-              <View style={styles.inputContainer}>
-                <LightModeText style={styles.inputLabel}>
-                  Current Occupation
-                </LightModeText>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { color: textColor, borderColor: iconColor },
-                  ]}
-                  placeholder="Enter your occupation"
-                  placeholderTextColor={iconColor}
-                  value={occupation}
-                  onChangeText={setOccupation}
-                />
-              </View>
-
               <LightModeText
                 type="subtitle"
                 style={[styles.sectionTitle, { marginTop: 20 }]}
@@ -828,7 +845,7 @@ export default function SignupScreen() {
                   (!termsAccepted || !privacyAccepted || !riskAccepted) &&
                     styles.disabledButton,
                 ]}
-                onPress={handleSignup}
+                onPress={handleNextStep}
                 disabled={
                   isLoading ||
                   !termsAccepted ||
@@ -843,13 +860,13 @@ export default function SignupScreen() {
                   ) : (
                     <>
                       <Ionicons
-                        name="person-add-outline"
+                        name="arrow-forward"
                         size={20}
                         color="white"
                         style={styles.buttonIcon}
                       />
                       <LightModeText style={styles.signupButtonText}>
-                        Create Account
+                        Next
                       </LightModeText>
                     </>
                   )}

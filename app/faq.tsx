@@ -65,6 +65,56 @@ const faqItems = [
     answer:
       "We take data security very seriously. FundLoop implements industry-standard encryption and security protocols to protect your personal and financial information. For more details, please refer to our Privacy Policy.",
   },
+  {
+    question: "What trading platforms does FundLoop support?",
+    answer:
+      "FundLoop supports industry-standard trading platforms including MetaTrader 4 (MT4), MetaTrader 5 (MT5), and cTrader. These platforms provide advanced charting, automated trading capabilities, and a wide range of technical indicators to support your trading strategies.",
+  },
+  {
+    question: "Do I need to be an experienced trader to join FundLoop?",
+    answer:
+      "While previous trading experience is beneficial, it's not mandatory. We welcome traders of all skill levels. However, you will need to successfully complete our evaluation process, which requires demonstrating profitable trading skills and risk management discipline.",
+  },
+  {
+    question: "What are the account size options available?",
+    answer:
+      "FundLoop offers various account sizes ranging from $10,000 to $200,000. The evaluation fee varies based on the account size you choose. Larger accounts typically require more stringent evaluation criteria but offer greater profit potential.",
+  },
+  {
+    question: "Can I trade news events?",
+    answer:
+      "Yes, you can trade during news events. However, we recommend caution as these periods can be highly volatile. Some specific high-impact news events may have trading restrictions to protect against extreme market volatility. These restrictions, if any, will be clearly communicated in your account rules.",
+  },
+  {
+    question: "What happens if I violate a trading rule?",
+    answer:
+      "Rule violations are handled on a case-by-case basis. Minor violations may result in warnings, while serious or repeated violations can lead to account suspension or termination. We always aim to be fair and transparent in evaluating rule violations and determining appropriate consequences.",
+  },
+  {
+    question: "Can I hold positions over weekends?",
+    answer:
+      "Yes, you can hold positions over weekends. However, you should be aware of the potential gap risk when markets reopen. We recommend managing your risk appropriately when holding weekend positions, especially during periods of anticipated market uncertainty.",
+  },
+  {
+    question: "Is there a time limit to complete the evaluation phases?",
+    answer:
+      "Yes, each phase of the evaluation has a minimum and maximum time limit. The minimum ensures you demonstrate consistent trading rather than taking excessive risks, while the maximum gives you reasonable time to meet the profit targets. Specific time frames are detailed in your evaluation package information.",
+  },
+  {
+    question: "Can I withdraw my initial evaluation fee?",
+    answer:
+      "The evaluation fee is non-refundable as it covers the cost of providing you with our capital to trade during the evaluation process. However, once you reach the funded stage, your profit share can far exceed your initial investment if you trade successfully.",
+  },
+  {
+    question: "Do you offer any educational resources for traders?",
+    answer:
+      "Yes, FundLoop provides a range of educational resources including webinars, trading guides, market analysis, and strategy discussions. We believe in continuous improvement and offer these resources to help you enhance your trading skills and maximize your success on our platform.",
+  },
+  {
+    question: "What happens if there are technical issues with the platform?",
+    answer:
+      "We have a dedicated technical support team available to assist with any platform issues. In cases where technical problems impact your trading, we have policies in place to ensure you're not penalized for circumstances beyond your control. Contact our support team immediately if you encounter any technical difficulties.",
+  },
 ];
 
 export default function FAQScreen() {

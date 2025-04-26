@@ -71,8 +71,7 @@ await signUp(
   password,
   phoneNumber,
   dateOfBirth,
-  tradingExperience,
-  occupation
+  tradingExperience
 );
 
 // Sign out

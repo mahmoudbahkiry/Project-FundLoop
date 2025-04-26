@@ -17,8 +17,17 @@ export interface UserData {
   phoneNumber?: string;
   dateOfBirth?: Date;
   tradingExperience?: string;
-  occupation?: string;
   authType: 'email';
+  // Personal information
+  nationality?: string;
+  address?: string;
+  // Financial information
+  employmentStatus?: string;
+  employerName?: string;
+  monthlyIncome?: string;
+  netWorth?: string;
+  sourceOfFunds?: string;
+  // Timestamps
   createdAt?: any;
   updatedAt?: any;
 }
@@ -44,7 +53,15 @@ export const saveUserData = async (userData: UserData): Promise<void> => {
       dateOfBirth: userData.dateOfBirth instanceof Date ? Timestamp.fromDate(userData.dateOfBirth) : null,
       // Optional fields - use "Not Specified" as default
       tradingExperience: userData.tradingExperience || "Not Specified",
-      occupation: userData.occupation || "Not Specified",
+      // Personal information
+      nationality: userData.nationality || "Not Specified",
+      address: userData.address || "Not Specified",
+      // Financial information
+      employmentStatus: userData.employmentStatus || "Not Specified",
+      employerName: userData.employerName || "Not Specified",
+      monthlyIncome: userData.monthlyIncome || "Not Specified",
+      netWorth: userData.netWorth || "Not Specified",
+      sourceOfFunds: userData.sourceOfFunds || "Not Specified",
     };
     
     console.log("Formatted user data for Firestore:", JSON.stringify(userDataToSave, null, 2));

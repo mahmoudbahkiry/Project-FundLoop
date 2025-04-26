@@ -690,12 +690,6 @@ export default function DashboardScreen() {
                     />
                   </TouchableOpacity>
                 </View>
-
-                <ThemedText style={styles.modalDescription}>
-                  Choose your account mode. Each mode has different features and
-                  capabilities.
-                </ThemedText>
-
                 <View style={styles.accountModeOptions}>
                   <TouchableOpacity
                     style={[

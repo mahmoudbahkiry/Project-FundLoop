@@ -44,9 +44,6 @@ export default function Profile() {
   const [tradingExperience, setTradingExperience] = useState(
     user?.tradingExperience || "Not Specified"
   );
-  const [occupation, setOccupation] = useState(
-    user?.occupation || "Not Specified"
-  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showExperiencePicker, setShowExperiencePicker] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
@@ -68,7 +65,6 @@ export default function Profile() {
       setPhoneNumber(user.phoneNumber || "");
       setDateOfBirth(user.dateOfBirth || new Date());
       setTradingExperience(user.tradingExperience || "Not Specified");
-      setOccupation(user.occupation || "Not Specified");
     }
   }, [user]);
 
@@ -103,7 +99,6 @@ export default function Profile() {
         phoneNumber,
         dateOfBirth,
         tradingExperience,
-        occupation,
         authType: "email",
       });
 
@@ -360,31 +355,6 @@ export default function Profile() {
                 {dateOfBirth
                   ? format(dateOfBirth, "MMM dd, yyyy")
                   : "Not specified"}
-              </ThemedText>
-            )}
-          </View>
-
-          <View style={styles.infoItem}>
-            <View style={styles.infoLabelContainer}>
-              <Ionicons
-                name="briefcase"
-                size={20}
-                color={Colors[theme].primary}
-              />
-              <ThemedText style={styles.infoLabel}>Occupation</ThemedText>
-            </View>
-
-            {isEditing ? (
-              <TextInput
-                style={[styles.inputInline, { color: Colors[theme].text }]}
-                value={occupation}
-                onChangeText={setOccupation}
-                placeholder="Enter occupation"
-                placeholderTextColor={Colors[theme].icon}
-              />
-            ) : (
-              <ThemedText style={styles.infoValue}>
-                {occupation || "Not specified"}
               </ThemedText>
             )}
           </View>
