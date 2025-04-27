@@ -16,7 +16,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Auth
 const auth = getAuth(app);
@@ -37,12 +37,7 @@ if (Platform.OS === 'web') {
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// Initialize analytics in a separate file with proper checks
-import { initializeAnalytics } from './analyticsUtils';
+// Note: Analytics initialization is now handled separately in analyticsUtils.ts
+// This removes the circular dependency
 
-// Initialize analytics (this will run asynchronously)
-initializeAnalytics().catch(error => {
-  console.error("Failed to initialize analytics:", error);
-});
-
-export { app, auth, db, storage };
+export { auth, db, storage };

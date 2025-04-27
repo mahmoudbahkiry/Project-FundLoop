@@ -6,10 +6,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { TradingProvider } from "../contexts/TradingContext";
 import { useEffect, useRef } from "react";
 import { router } from "expo-router";
-import {
-  initializeAnalytics,
-  isAnalyticsAvailable,
-} from "@/firebase/analyticsUtils";
+import { initializeFirebase } from "@/firebase";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StyleSheet } from "react-native";
 
@@ -120,28 +117,19 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  // Initialize Firebase Analytics
+  // Initialize Firebase services
   useEffect(() => {
-    const setupAnalytics = async () => {
+    const setupFirebase = async () => {
       try {
-        // Check if analytics is supported in this environment
-        const isSupported = await isAnalyticsAvailable();
-
-        if (isSupported) {
-          // Initialize analytics
-          await initializeAnalytics();
-          console.log("Firebase Analytics initialized in RootLayout");
-        } else {
-          console.log(
-            "Firebase Analytics is not supported in this environment"
-          );
-        }
+        // Initialize all Firebase services
+        await initializeFirebase();
+        console.log("Firebase services initialized in RootLayout");
       } catch (error) {
-        console.error("Error initializing Firebase Analytics:", error);
+        console.error("Error initializing Firebase services:", error);
       }
     };
 
-    setupAnalytics();
+    setupFirebase();
   }, []);
 
   return (

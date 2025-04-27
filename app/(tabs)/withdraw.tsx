@@ -87,7 +87,12 @@ export default function WithdrawScreen() {
             variant="elevated"
             style={[
               styles.methodCard,
-              { borderLeftColor: "#00B894", borderLeftWidth: 4 },
+              {
+                borderLeftColor: "#00B894",
+                borderLeftWidth: 4,
+                borderColor:
+                  theme === "light" ? "rgba(0, 0, 0, 0.1)" : "transparent",
+              },
             ]}
           >
             <TouchableOpacity
@@ -128,7 +133,12 @@ export default function WithdrawScreen() {
             variant="elevated"
             style={[
               styles.methodCard,
-              { borderLeftColor: "#0984E3", borderLeftWidth: 4 },
+              {
+                borderLeftColor: "#0984E3",
+                borderLeftWidth: 4,
+                borderColor:
+                  theme === "light" ? "rgba(0, 0, 0, 0.1)" : "transparent",
+              },
             ]}
           >
             <TouchableOpacity
@@ -167,7 +177,12 @@ export default function WithdrawScreen() {
             variant="elevated"
             style={[
               styles.methodCard,
-              { borderLeftColor: "#FDCB6E", borderLeftWidth: 4 },
+              {
+                borderLeftColor: "#FDCB6E",
+                borderLeftWidth: 4,
+                borderColor:
+                  theme === "light" ? "rgba(0, 0, 0, 0.1)" : "transparent",
+              },
             ]}
           >
             <TouchableOpacity
@@ -257,6 +272,8 @@ const styles = StyleSheet.create({
   methodCard: {
     borderRadius: 16,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   methodTouchable: {
     padding: 20,

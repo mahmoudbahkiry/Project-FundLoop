@@ -1,3 +1,4 @@
+// Analytics Tab: Provides trading performance data, journal entries, and compliance monitoring
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -7,6 +8,7 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,6 +22,12 @@ import {
   getUserJournalEntries,
   JournalEntry as JournalEntryType,
 } from "@/firebase/journalService";
+import { getUserOrders } from "@/firebase/tradingService";
+import {
+  calculateTradeMetrics,
+  filterOrdersByTimeframe,
+} from "@/firebase/tradeAnalyticsUtils";
+import { Order } from "@/contexts/TradingContext";
 
 // Types
 interface TradeMetrics {
@@ -30,10 +38,11 @@ interface TradeMetrics {
   averageWin: number;
   averageLoss: number;
   profitFactor: number;
-  sharpeRatio: number;
-  maxDrawdown: number;
-  riskPerTrade: number;
-  dailyRisk: number;
+  totalPnl: number;
+  sharpeRatio?: number;
+  maxDrawdown?: number;
+  riskPerTrade?: number;
+  dailyRisk?: number;
 }
 
 interface ChartData {
@@ -98,10 +107,29 @@ export default function AnalyticsScreen() {
   );
   const [journalEntries, setJournalEntries] = useState<JournalEntryType[]>([]);
   const [isLoadingEntries, setIsLoadingEntries] = useState(false);
+
+  // New state for order data
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [tradeMetrics, setTradeMetrics] = useState<TradeMetrics>({
+    totalTrades: 0,
+    winningTrades: 0,
+    losingTrades: 0,
+    winRate: 0,
+    averageWin: 0,
+    averageLoss: 0,
+    profitFactor: 0,
+    totalPnl: 0,
+  });
+
+  // Add refreshing state
+  const [refreshing, setRefreshing] = useState(false);
+
   const { user } = useAuth();
 
   // State for error handling
   const [journalError, setJournalError] = useState<string | null>(null);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
 
   // Load journal entries when the journal tab is active
   useEffect(() => {
@@ -109,6 +137,60 @@ export default function AnalyticsScreen() {
       loadJournalEntries();
     }
   }, [activeTab, user]);
+
+  // Load orders and calculate metrics when component mounts or timeframe changes
+  useEffect(() => {
+    if (user) {
+      loadUserOrders();
+    }
+  }, [user, timeframe]);
+
+  // Handle pull-to-refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (user) {
+        if (activeTab === "performance") {
+          await loadUserOrders();
+        } else if (activeTab === "journal") {
+          await loadJournalEntries();
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Function to load user orders
+  const loadUserOrders = async () => {
+    if (!user) {
+      setOrdersError("You must be logged in to view analytics");
+      return;
+    }
+
+    try {
+      setIsLoadingOrders(true);
+      setOrdersError(null);
+
+      console.log(`Attempting to load orders for user: ${user.uid}`);
+      const userOrders = await getUserOrders(user.uid);
+      console.log(`Successfully loaded ${userOrders.length} orders`);
+
+      setOrders(userOrders);
+
+      // Filter orders by timeframe and calculate metrics
+      const filteredOrders = filterOrdersByTimeframe(userOrders, timeframe);
+      const metrics = calculateTradeMetrics(filteredOrders);
+      setTradeMetrics(metrics);
+    } catch (error) {
+      console.error("Error loading orders:", error);
+      setOrdersError("Failed to load trading data. Please try again later.");
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  };
 
   // Function to load journal entries
   const loadJournalEntries = async () => {
@@ -146,47 +228,6 @@ export default function AnalyticsScreen() {
   const handleSaveEntry = async (entry: JournalEntryType) => {
     setIsJournalModalVisible(false);
     await loadJournalEntries();
-  };
-
-  // Mock data
-  const tradeMetrics: TradeMetrics = {
-    totalTrades: 87,
-    winningTrades: 52,
-    losingTrades: 35,
-    winRate: 59.8,
-    averageWin: 320.45,
-    averageLoss: -185.3,
-    profitFactor: 2.3,
-    sharpeRatio: 1.8,
-    maxDrawdown: 7.2,
-    riskPerTrade: 1.5,
-    dailyRisk: 3.2,
-  };
-
-  // Mock chart data
-  const profitLossData: Record<string, ChartData> = {
-    daily: {
-      labels: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-      datasets: [{ data: [350, -120, 480, 200, -80] }],
-    },
-    weekly: {
-      labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
-      datasets: [{ data: [1200, 850, -400, 1500] }],
-    },
-    monthly: {
-      labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-      datasets: [{ data: [3500, 2800, -1200, 4200, 3800, 5100] }],
-    },
-  };
-
-  const equityCurveData: ChartData = {
-    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-    datasets: [{ data: [100000, 103500, 106300, 105100, 109300, 113100] }],
-  };
-
-  const drawdownData: ChartData = {
-    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-    datasets: [{ data: [-1.2, -2.5, -4.8, -3.2, -1.5, -0.8] }],
   };
 
   // Mock trade logs
@@ -341,7 +382,7 @@ export default function AnalyticsScreen() {
     },
   ];
 
-  // Render chart placeholder
+  // Render chart placeholder (only used in trades tab now)
   const renderChartPlaceholder = (title: string, height: number = 180) => (
     <ThemedView variant="innerCard" style={[styles.chartContainer, { height }]}>
       <View style={styles.chartPlaceholder}>
@@ -808,9 +849,33 @@ export default function AnalyticsScreen() {
         return (
           <ScrollView style={styles.container}>
             <View style={styles.sectionHeader}>
-              <ThemedText type="subtitle" style={styles.cardTitle}>
-                Performance Overview
-              </ThemedText>
+              {/* Quick Stats with Real Data */}
+              <View style={styles.quickStatsHeader}>
+                <ThemedText type="subtitle" style={styles.cardTitle}>
+                  Performance Overview
+                </ThemedText>
+                <View
+                  style={[
+                    styles.periodBadge,
+                    {
+                      backgroundColor:
+                        theme === "dark"
+                          ? "rgba(255, 255, 255, 0.1)"
+                          : "rgba(0, 0, 0, 0.05)",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={14}
+                    color={Colors[theme].primary}
+                    style={{ marginRight: 4 }}
+                  />
+                  <ThemedText style={styles.periodText}>
+                    {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
+                  </ThemedText>
+                </View>
+              </View>
 
               {/* Timeframe selector */}
               <View style={styles.timeframeSelector}>
@@ -894,667 +959,339 @@ export default function AnalyticsScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Charts and other content remain the same, just remove the outer card container */}
-              <ThemedText type="defaultSemiBold" style={styles.chartTitle}>
-                Profit/Loss
-              </ThemedText>
-              {renderChartPlaceholder("Profit/Loss Chart")}
-
-              <ThemedText type="defaultSemiBold" style={styles.chartTitle}>
-                Equity Curve
-              </ThemedText>
-              {renderChartPlaceholder("Equity Curve")}
-
-              <ThemedText type="defaultSemiBold" style={styles.chartTitle}>
-                Drawdown
-              </ThemedText>
-              {renderChartPlaceholder("Drawdown Chart")}
-            </View>
-
-            {/* Quick Stats */}
-            <View style={styles.sectionHeader}>
-              <View style={styles.quickStatsHeader}>
-                <ThemedText type="subtitle" style={styles.cardTitle}>
-                  Quick Stats
-                </ThemedText>
-                <View
-                  style={[
-                    styles.periodBadge,
-                    {
-                      backgroundColor:
-                        theme === "dark"
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : "rgba(0, 0, 0, 0.05)",
-                    },
-                  ]}
-                >
+              {isLoadingOrders ? (
+                <ThemedView variant="innerCard" style={styles.loadingContainer}>
+                  <ThemedText>Loading trading data...</ThemedText>
+                </ThemedView>
+              ) : ordersError ? (
+                <ThemedView variant="innerCard" style={styles.errorContainer}>
                   <Ionicons
-                    name="calendar-outline"
-                    size={14}
-                    color={Colors[theme].primary}
-                    style={{ marginRight: 4 }}
+                    name="alert-circle-outline"
+                    size={48}
+                    color="#EF4444"
                   />
-                  <ThemedText style={styles.periodText}>
-                    {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
+                  <ThemedText style={styles.errorText}>
+                    {ordersError}
                   </ThemedText>
-                </View>
-              </View>
-
-              {/* Main Stats Grid */}
-              <View style={styles.statsGrid}>
-                {/* Total P/L Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? `${Colors[theme].success}30`
-                      : `${Colors[theme].success}15`,
-                    "transparent",
-                  ]}
-                  style={styles.mainStatCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(46, 204, 113, 0.2)"
-                                : "rgba(46, 204, 113, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="trending-up"
-                          size={20}
-                          color={Colors[theme].success}
-                        />
-                      </View>
-                      <View
-                        style={[
-                          styles.trendBadge,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(46, 204, 113, 0.2)"
-                                : "rgba(46, 204, 113, 0.1)",
-                          },
-                        ]}
-                      >
-                        <ThemedText
+                  <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={loadUserOrders}
+                  >
+                    <Ionicons name="refresh" size={16} color="#fff" />
+                    <ThemedText style={styles.retryButtonText}>
+                      Retry
+                    </ThemedText>
+                  </TouchableOpacity>
+                </ThemedView>
+              ) : (
+                /* Main Stats Grid with Real Data */
+                <View style={styles.statsGrid}>
+                  {/* Total P/L Card */}
+                  <LinearGradient
+                    colors={[
+                      theme === "dark"
+                        ? `${
+                            tradeMetrics.totalPnl >= 0
+                              ? Colors[theme].success
+                              : "#EF4444"
+                          }30`
+                        : `${
+                            tradeMetrics.totalPnl >= 0
+                              ? Colors[theme].success
+                              : "#EF4444"
+                          }15`,
+                      "transparent",
+                    ]}
+                    style={styles.mainStatCardNew}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <View style={styles.statCardContent}>
+                      <View style={styles.statCardHeader}>
+                        <View
                           style={[
-                            styles.trendText,
-                            { color: Colors[theme].success },
+                            styles.iconContainer,
+                            {
+                              backgroundColor:
+                                theme === "dark"
+                                  ? `rgba(${
+                                      tradeMetrics.totalPnl >= 0
+                                        ? "46, 204, 113"
+                                        : "239, 68, 68"
+                                    }, 0.2)`
+                                  : `rgba(${
+                                      tradeMetrics.totalPnl >= 0
+                                        ? "46, 204, 113"
+                                        : "239, 68, 68"
+                                    }, 0.1)`,
+                            },
                           ]}
                         >
-                          +2.1%
-                        </ThemedText>
+                          <Ionicons
+                            name={
+                              tradeMetrics.totalPnl >= 0
+                                ? "trending-up"
+                                : "trending-down"
+                            }
+                            size={20}
+                            color={
+                              tradeMetrics.totalPnl >= 0
+                                ? Colors[theme].success
+                                : "#EF4444"
+                            }
+                          />
+                        </View>
+                        {orders.length > 0 && (
+                          <View
+                            style={[
+                              styles.trendBadge,
+                              {
+                                backgroundColor:
+                                  theme === "dark"
+                                    ? `rgba(${
+                                        tradeMetrics.totalPnl >= 0
+                                          ? "46, 204, 113"
+                                          : "239, 68, 68"
+                                      }, 0.2)`
+                                    : `rgba(${
+                                        tradeMetrics.totalPnl >= 0
+                                          ? "46, 204, 113"
+                                          : "239, 68, 68"
+                                      }, 0.1)`,
+                              },
+                            ]}
+                          >
+                            <ThemedText
+                              style={[
+                                styles.trendText,
+                                {
+                                  color:
+                                    tradeMetrics.totalPnl >= 0
+                                      ? Colors[theme].success
+                                      : "#EF4444",
+                                },
+                              ]}
+                            >
+                              {timeframe}
+                            </ThemedText>
+                          </View>
+                        )}
                       </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>Total P/L</ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.statValue,
-                        { color: Colors[theme].success },
-                      ]}
-                    >
-                      {formatCurrency(8320)}
-                    </ThemedText>
-                    <ThemedText style={styles.statSubtext}>
-                      vs. previous {timeframe}
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-
-                {/* Win Rate Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? `${Colors[theme].primary}30`
-                      : `${Colors[theme].primary}15`,
-                    "transparent",
-                  ]}
-                  style={styles.statCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(66, 153, 225, 0.2)"
-                                : "rgba(66, 153, 225, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={20}
-                          color={Colors[theme].primary}
-                        />
-                      </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>Win Rate</ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.statValue,
-                        { color: Colors[theme].primary },
-                      ]}
-                    >
-                      {tradeMetrics.winRate}%
-                    </ThemedText>
-                    <ThemedText style={styles.statSubtext}>
-                      {tradeMetrics.winningTrades}/{tradeMetrics.totalTrades}{" "}
-                      trades
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-
-                {/* Average Win Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? `${Colors[theme].success}30`
-                      : `${Colors[theme].success}15`,
-                    "transparent",
-                  ]}
-                  style={styles.statCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(46, 204, 113, 0.2)"
-                                : "rgba(46, 204, 113, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="arrow-up-circle"
-                          size={20}
-                          color={Colors[theme].success}
-                        />
-                      </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>
-                      Average Win
-                    </ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.statValue,
-                        { color: Colors[theme].success },
-                      ]}
-                    >
-                      {formatCurrency(tradeMetrics.averageWin)}
-                    </ThemedText>
-                    <ThemedText style={styles.statSubtext}>
-                      per winning trade
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-
-                {/* Average Loss Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? "rgba(239, 68, 68, 0.3)"
-                      : "rgba(239, 68, 68, 0.15)",
-                    "transparent",
-                  ]}
-                  style={styles.statCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(239, 68, 68, 0.2)"
-                                : "rgba(239, 68, 68, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="arrow-down-circle"
-                          size={20}
-                          color="#EF4444"
-                        />
-                      </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>
-                      Average Loss
-                    </ThemedText>
-                    <ThemedText
-                      style={[styles.statValue, { color: "#EF4444" }]}
-                    >
-                      {formatCurrency(tradeMetrics.averageLoss)}
-                    </ThemedText>
-                    <ThemedText style={styles.statSubtext}>
-                      per losing trade
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-
-                {/* Profit Factor Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? `${Colors[theme].primary}30`
-                      : `${Colors[theme].primary}15`,
-                    "transparent",
-                  ]}
-                  style={styles.statCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(66, 153, 225, 0.2)"
-                                : "rgba(66, 153, 225, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="analytics"
-                          size={20}
-                          color={Colors[theme].primary}
-                        />
-                      </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>
-                      Profit Factor
-                    </ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.statValue,
-                        { color: Colors[theme].primary },
-                      ]}
-                    >
-                      {tradeMetrics.profitFactor.toFixed(2)}
-                    </ThemedText>
-                    <ThemedText style={styles.statSubtext}>
-                      gross profit/loss ratio
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-              </View>
-            </View>
-          </ScrollView>
-        );
-
-      case "trades":
-        return (
-          <ScrollView style={styles.container}>
-            <View style={styles.sectionHeader}>
-              <ThemedText type="subtitle" style={styles.cardTitle}>
-                Trade Analysis
-              </ThemedText>
-
-              {/* Trade Overview Stats */}
-              <View style={styles.statsGrid}>
-                {/* Total Trades Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? `${Colors[theme].primary}30`
-                      : `${Colors[theme].primary}15`,
-                    "transparent",
-                  ]}
-                  style={styles.mainStatCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(66, 153, 225, 0.2)"
-                                : "rgba(66, 153, 225, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="bar-chart"
-                          size={20}
-                          color={Colors[theme].primary}
-                        />
-                      </View>
-                      <View
-                        style={[
-                          styles.trendBadge,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(66, 153, 225, 0.2)"
-                                : "rgba(66, 153, 225, 0.1)",
-                          },
-                        ]}
-                      >
-                        <ThemedText
-                          style={[
-                            styles.trendText,
-                            { color: Colors[theme].primary },
-                          ]}
-                        >
-                          This Month
-                        </ThemedText>
-                      </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>
-                      Total Trades
-                    </ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.statValue,
-                        { color: Colors[theme].primary },
-                      ]}
-                    >
-                      {tradeMetrics.totalTrades}
-                    </ThemedText>
-                    <View style={styles.tradeSplit}>
+                      <ThemedText style={styles.statLabel}>
+                        Total P/L
+                      </ThemedText>
                       <ThemedText
                         style={[
-                          styles.tradeSubstat,
+                          styles.statValue,
+                          {
+                            color:
+                              tradeMetrics.totalPnl >= 0
+                                ? Colors[theme].success
+                                : "#EF4444",
+                          },
+                        ]}
+                      >
+                        {formatCurrency(tradeMetrics.totalPnl)}
+                      </ThemedText>
+                      <ThemedText style={styles.statSubtext}>
+                        {tradeMetrics.totalTrades} trades
+                      </ThemedText>
+                    </View>
+                  </LinearGradient>
+
+                  {/* Win Rate Card */}
+                  <LinearGradient
+                    colors={[
+                      theme === "dark"
+                        ? `${Colors[theme].primary}30`
+                        : `${Colors[theme].primary}15`,
+                      "transparent",
+                    ]}
+                    style={styles.statCardNew}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <View style={styles.statCardContent}>
+                      <View style={styles.statCardHeader}>
+                        <View
+                          style={[
+                            styles.iconContainer,
+                            {
+                              backgroundColor:
+                                theme === "dark"
+                                  ? "rgba(66, 153, 225, 0.2)"
+                                  : "rgba(66, 153, 225, 0.1)",
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={20}
+                            color={Colors[theme].primary}
+                          />
+                        </View>
+                      </View>
+                      <ThemedText style={styles.statLabel}>Win Rate</ThemedText>
+                      <ThemedText
+                        style={[
+                          styles.statValue,
+                          { color: Colors[theme].primary },
+                        ]}
+                      >
+                        {tradeMetrics.winRate.toFixed(1)}%
+                      </ThemedText>
+                      <ThemedText style={styles.statSubtext}>
+                        {tradeMetrics.winningTrades}/{tradeMetrics.totalTrades}{" "}
+                        trades
+                      </ThemedText>
+                    </View>
+                  </LinearGradient>
+
+                  {/* Average Win Card */}
+                  <LinearGradient
+                    colors={[
+                      theme === "dark"
+                        ? `${Colors[theme].success}30`
+                        : `${Colors[theme].success}15`,
+                      "transparent",
+                    ]}
+                    style={styles.statCardNew}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <View style={styles.statCardContent}>
+                      <View style={styles.statCardHeader}>
+                        <View
+                          style={[
+                            styles.iconContainer,
+                            {
+                              backgroundColor:
+                                theme === "dark"
+                                  ? "rgba(46, 204, 113, 0.2)"
+                                  : "rgba(46, 204, 113, 0.1)",
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="arrow-up-circle"
+                            size={20}
+                            color={Colors[theme].success}
+                          />
+                        </View>
+                      </View>
+                      <ThemedText style={styles.statLabel}>
+                        Average Win
+                      </ThemedText>
+                      <ThemedText
+                        style={[
+                          styles.statValue,
                           { color: Colors[theme].success },
                         ]}
                       >
-                        {tradeMetrics.winningTrades} Won
+                        {formatCurrency(tradeMetrics.averageWin)}
+                      </ThemedText>
+                      <ThemedText style={styles.statSubtext}>
+                        per winning trade
+                      </ThemedText>
+                    </View>
+                  </LinearGradient>
+
+                  {/* Average Loss Card */}
+                  <LinearGradient
+                    colors={[
+                      theme === "dark"
+                        ? "rgba(239, 68, 68, 0.3)"
+                        : "rgba(239, 68, 68, 0.15)",
+                      "transparent",
+                    ]}
+                    style={styles.statCardNew}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <View style={styles.statCardContent}>
+                      <View style={styles.statCardHeader}>
+                        <View
+                          style={[
+                            styles.iconContainer,
+                            {
+                              backgroundColor:
+                                theme === "dark"
+                                  ? "rgba(239, 68, 68, 0.2)"
+                                  : "rgba(239, 68, 68, 0.1)",
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="arrow-down-circle"
+                            size={20}
+                            color="#EF4444"
+                          />
+                        </View>
+                      </View>
+                      <ThemedText style={styles.statLabel}>
+                        Average Loss
                       </ThemedText>
                       <ThemedText
-                        style={[styles.tradeSubstat, { color: "#EF4444" }]}
+                        style={[styles.statValue, { color: "#EF4444" }]}
                       >
-                        {tradeMetrics.losingTrades} Lost
+                        {formatCurrency(tradeMetrics.averageLoss)}
+                      </ThemedText>
+                      <ThemedText style={styles.statSubtext}>
+                        per losing trade
                       </ThemedText>
                     </View>
-                  </View>
-                </LinearGradient>
+                  </LinearGradient>
 
-                {/* Win Rate Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? `${Colors[theme].success}30`
-                      : `${Colors[theme].success}15`,
-                    "transparent",
-                  ]}
-                  style={styles.statCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(46, 204, 113, 0.2)"
-                                : "rgba(46, 204, 113, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="trophy"
-                          size={20}
-                          color={Colors[theme].success}
-                        />
-                      </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>Win Rate</ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.statValue,
-                        { color: Colors[theme].success },
-                      ]}
-                    >
-                      {tradeMetrics.winRate}%
-                    </ThemedText>
-                    <ThemedText style={styles.statSubtext}>
-                      success rate
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-
-                {/* Average Win Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? `${Colors[theme].success}30`
-                      : `${Colors[theme].success}15`,
-                    "transparent",
-                  ]}
-                  style={styles.statCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(46, 204, 113, 0.2)"
-                                : "rgba(46, 204, 113, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="trending-up"
-                          size={20}
-                          color={Colors[theme].success}
-                        />
-                      </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>
-                      Average Win
-                    </ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.statValue,
-                        { color: Colors[theme].success },
-                      ]}
-                    >
-                      {formatCurrency(tradeMetrics.averageWin)}
-                    </ThemedText>
-                    <ThemedText style={styles.statSubtext}>
-                      per winning trade
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-
-                {/* Average Loss Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? "rgba(239, 68, 68, 0.3)"
-                      : "rgba(239, 68, 68, 0.15)",
-                    "transparent",
-                  ]}
-                  style={styles.statCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(239, 68, 68, 0.2)"
-                                : "rgba(239, 68, 68, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="arrow-down-circle"
-                          size={20}
-                          color="#EF4444"
-                        />
-                      </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>
-                      Average Loss
-                    </ThemedText>
-                    <ThemedText
-                      style={[styles.statValue, { color: "#EF4444" }]}
-                    >
-                      {formatCurrency(tradeMetrics.averageLoss)}
-                    </ThemedText>
-                    <ThemedText style={styles.statSubtext}>
-                      per losing trade
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-
-                {/* Profit Factor Card */}
-                <LinearGradient
-                  colors={[
-                    theme === "dark"
-                      ? `${Colors[theme].primary}30`
-                      : `${Colors[theme].primary}15`,
-                    "transparent",
-                  ]}
-                  style={styles.statCardNew}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.statCardContent}>
-                    <View style={styles.statCardHeader}>
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          {
-                            backgroundColor:
-                              theme === "dark"
-                                ? "rgba(66, 153, 225, 0.2)"
-                                : "rgba(66, 153, 225, 0.1)",
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="analytics"
-                          size={20}
-                          color={Colors[theme].primary}
-                        />
-                      </View>
-                    </View>
-                    <ThemedText style={styles.statLabel}>
-                      Profit Factor
-                    </ThemedText>
-                    <ThemedText
-                      style={[
-                        styles.statValue,
-                        { color: Colors[theme].primary },
-                      ]}
-                    >
-                      {tradeMetrics.profitFactor.toFixed(2)}
-                    </ThemedText>
-                    <ThemedText style={styles.statSubtext}>
-                      gross profit/loss ratio
-                    </ThemedText>
-                  </View>
-                </LinearGradient>
-              </View>
-
-              {/* Win/Loss Distribution */}
-              <ThemedText type="defaultSemiBold" style={styles.chartTitle}>
-                Win/Loss Distribution
-              </ThemedText>
-              <ThemedView variant="innerCard" style={styles.distributionCard}>
-                <View style={styles.distributionBar}>
-                  <View
-                    style={[
-                      styles.distributionFill,
-                      {
-                        backgroundColor: Colors[theme].success,
-                        width: `${
-                          (tradeMetrics.winningTrades /
-                            tradeMetrics.totalTrades) *
-                          100
-                        }%`,
-                      },
+                  {/* Profit Factor Card */}
+                  <LinearGradient
+                    colors={[
+                      theme === "dark"
+                        ? `${Colors[theme].primary}30`
+                        : `${Colors[theme].primary}15`,
+                      "transparent",
                     ]}
-                  />
-                  <View
-                    style={[
-                      styles.distributionFill,
-                      {
-                        backgroundColor: "#EF4444",
-                        width: `${
-                          (tradeMetrics.losingTrades /
-                            tradeMetrics.totalTrades) *
-                          100
-                        }%`,
-                      },
-                    ]}
-                  />
+                    style={styles.statCardNew}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <View style={styles.statCardContent}>
+                      <View style={styles.statCardHeader}>
+                        <View
+                          style={[
+                            styles.iconContainer,
+                            {
+                              backgroundColor:
+                                theme === "dark"
+                                  ? "rgba(66, 153, 225, 0.2)"
+                                  : "rgba(66, 153, 225, 0.1)",
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="analytics"
+                            size={20}
+                            color={Colors[theme].primary}
+                          />
+                        </View>
+                      </View>
+                      <ThemedText style={styles.statLabel}>
+                        Profit Factor
+                      </ThemedText>
+                      <ThemedText
+                        style={[
+                          styles.statValue,
+                          { color: Colors[theme].primary },
+                        ]}
+                      >
+                        {tradeMetrics.profitFactor.toFixed(2)}
+                      </ThemedText>
+                      <ThemedText style={styles.statSubtext}>
+                        gross profit/loss ratio
+                      </ThemedText>
+                    </View>
+                  </LinearGradient>
                 </View>
-                <View style={styles.distributionLabels}>
-                  <View style={styles.distributionLabel}>
-                    <View
-                      style={[
-                        styles.labelDot,
-                        { backgroundColor: Colors[theme].success },
-                      ]}
-                    />
-                    <ThemedText style={styles.labelText}>
-                      Winning Trades ({tradeMetrics.winRate}%)
-                    </ThemedText>
-                  </View>
-                  <View style={styles.distributionLabel}>
-                    <View
-                      style={[styles.labelDot, { backgroundColor: "#EF4444" }]}
-                    />
-                    <ThemedText style={styles.labelText}>
-                      Losing Trades ({(100 - tradeMetrics.winRate).toFixed(1)}%)
-                    </ThemedText>
-                  </View>
-                </View>
-              </ThemedView>
-
-              {/* Trade Size Distribution */}
-              <ThemedText type="defaultSemiBold" style={styles.chartTitle}>
-                Trade Size Distribution
-              </ThemedText>
-              {renderChartPlaceholder("Trade Size Chart", 200)}
-
-              {/* Trade Duration */}
-              <ThemedText type="defaultSemiBold" style={styles.chartTitle}>
-                Trade Duration
-              </ThemedText>
-              {renderChartPlaceholder("Trade Duration Chart", 200)}
+              )}
             </View>
           </ScrollView>
         );
@@ -1939,6 +1676,7 @@ export default function AnalyticsScreen() {
   // Render main screen
   return (
     <ThemedView style={{ flex: 1 }}>
+      {/* Fixed Header */}
       <View style={styles.headerContainer}>
         <View style={styles.header}>
           <ThemedText type="heading" style={styles.headerTitle}>
@@ -1947,110 +1685,89 @@ export default function AnalyticsScreen() {
         </View>
       </View>
 
+      {/* Fixed Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabScroll}
+          contentContainerStyle={styles.tabScrollContent}
+        >
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === "performance" && [
+                styles.activeTab,
+                { backgroundColor: `${Colors[theme].primary}15` },
+              ],
+            ]}
+            onPress={() => setActiveTab("performance")}
+          >
+            <Ionicons
+              name="stats-chart"
+              size={20}
+              color={
+                activeTab === "performance"
+                  ? Colors[theme].primary
+                  : Colors[theme].icon
+              }
+            />
+            <ThemedText
+              style={[
+                styles.tabText,
+                activeTab === "performance" && {
+                  color: Colors[theme].primary,
+                },
+              ]}
+            >
+              Performance
+            </ThemedText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === "journal" && [
+                styles.activeTab,
+                { backgroundColor: `${Colors[theme].primary}15` },
+              ],
+            ]}
+            onPress={() => setActiveTab("journal")}
+          >
+            <Ionicons
+              name="journal"
+              size={20}
+              color={
+                activeTab === "journal"
+                  ? Colors[theme].primary
+                  : Colors[theme].icon
+              }
+            />
+            <ThemedText
+              style={[
+                styles.tabText,
+                activeTab === "journal" && { color: Colors[theme].primary },
+              ]}
+            >
+              Journal
+            </ThemedText>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {/* Scrollable Content Area with RefreshControl */}
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors[theme].primary]}
+            tintColor={Colors[theme].primary}
+          />
+        }
       >
-        {/* Tab Navigation */}
-        <View style={styles.tabContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tabScroll}
-            contentContainerStyle={styles.tabScrollContent}
-          >
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === "performance" && [
-                  styles.activeTab,
-                  { backgroundColor: `${Colors[theme].primary}15` },
-                ],
-              ]}
-              onPress={() => setActiveTab("performance")}
-            >
-              <Ionicons
-                name="stats-chart"
-                size={20}
-                color={
-                  activeTab === "performance"
-                    ? Colors[theme].primary
-                    : Colors[theme].icon
-                }
-              />
-              <ThemedText
-                style={[
-                  styles.tabText,
-                  activeTab === "performance" && {
-                    color: Colors[theme].primary,
-                  },
-                ]}
-              >
-                Performance
-              </ThemedText>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === "trades" && [
-                  styles.activeTab,
-                  { backgroundColor: `${Colors[theme].primary}15` },
-                ],
-              ]}
-              onPress={() => setActiveTab("trades")}
-            >
-              <Ionicons
-                name="trending-up"
-                size={20}
-                color={
-                  activeTab === "trades"
-                    ? Colors[theme].primary
-                    : Colors[theme].icon
-                }
-              />
-              <ThemedText
-                style={[
-                  styles.tabText,
-                  activeTab === "trades" && { color: Colors[theme].primary },
-                ]}
-              >
-                Trades
-              </ThemedText>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === "journal" && [
-                  styles.activeTab,
-                  { backgroundColor: `${Colors[theme].primary}15` },
-                ],
-              ]}
-              onPress={() => setActiveTab("journal")}
-            >
-              <Ionicons
-                name="journal"
-                size={20}
-                color={
-                  activeTab === "journal"
-                    ? Colors[theme].primary
-                    : Colors[theme].icon
-                }
-              />
-              <ThemedText
-                style={[
-                  styles.tabText,
-                  activeTab === "journal" && { color: Colors[theme].primary },
-                ]}
-              >
-                Journal
-              </ThemedText>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-
-        {/* Content Area */}
         <View style={styles.container}>{renderTabContent()}</View>
       </ScrollView>
     </ThemedView>
@@ -2111,18 +1828,33 @@ const styles = StyleSheet.create({
   },
   timeframeSelector: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: 24,
+    marginTop: 8,
     borderRadius: 8,
     overflow: "hidden",
   },
   timeframeButton: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.05)",
+    marginHorizontal: 4,
   },
   activeTimeframe: {
     borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+    borderColor: Colors.light.primary,
+    borderWidth: 1,
   },
   activeTimeframeText: {
     fontWeight: "600",
@@ -2367,6 +2099,8 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 12,
+    marginBottom: 16,
   },
   emptyContainer: {
     padding: 32,
@@ -2726,6 +2460,8 @@ const styles = StyleSheet.create({
     padding: 32,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 12,
+    marginBottom: 16,
   },
   errorText: {
     marginTop: 16,

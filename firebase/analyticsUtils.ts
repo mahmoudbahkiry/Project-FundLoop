@@ -76,6 +76,8 @@ export const isAnalyticsAvailable = async (): Promise<boolean> => {
   }
 };
 
+// NOTE: The actual initialization is done in firebase/index.ts to avoid circular dependencies
+
 /**
  * Common analytics events
  */
