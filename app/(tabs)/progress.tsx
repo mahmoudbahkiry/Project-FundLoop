@@ -13,10 +13,8 @@ import { useTradingContext } from "@/contexts/TradingContext";
 import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BarChart } from "react-native-chart-kit";
-import Animated, { FadeInRight } from "react-native-reanimated";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -25,10 +23,17 @@ export default function ProgressScreen() {
   const theme = currentTheme;
   const { balance, accountMode, setAccountMode } = useTradingContext();
   const [selectedTab, setSelectedTab] = useState("overview");
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Add useEffect to log account mode when component mounts
+  // Add useEffect to log account mode when component mounts and simulate data loading
   useEffect(() => {
     console.log("ProgressScreen - Current account mode:", accountMode);
+    // Simulate data loading and set state to indicate data is ready
+    const timer = setTimeout(() => {
+      setIsDataLoaded(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [accountMode]);
 
   // Function to switch to Evaluation mode
@@ -115,506 +120,478 @@ export default function ProgressScreen() {
     return "#06D6A0"; // Green
   };
 
-  const renderPhaseCard = (phase: any, index: number) => {
+  const renderPhaseCard = (phase: any) => {
     const isCurrentPhase = evaluationProgress.currentPhase === phase.phase;
 
     return (
-      <Animated.View
+      <ThemedView
         key={`phase-${phase.phase}`}
-        entering={FadeInRight.delay(index * 200)}
+        variant="elevated"
+        style={[
+          styles.phaseCard,
+          isCurrentPhase && {
+            borderLeftWidth: 4,
+            borderLeftColor: Colors[theme].primary,
+          },
+        ]}
       >
-        <ThemedView
-          variant="elevated"
-          style={[
-            styles.phaseCard,
-            isCurrentPhase && {
-              borderLeftWidth: 4,
-              borderLeftColor: Colors[theme].primary,
-            },
-          ]}
-        >
-          <View style={styles.phaseHeader}>
-            <View>
-              <ThemedText style={styles.phaseName}>{phase.name}</ThemedText>
-              <ThemedText style={styles.phaseDuration}>
-                Duration: {phase.duration}
-                {phase.daysRemaining
-                  ? ` (${phase.daysRemaining} days remaining)`
-                  : ""}
-              </ThemedText>
-            </View>
-            <View
+        <View style={styles.phaseHeader}>
+          <View>
+            <ThemedText style={styles.phaseName}>{phase.name}</ThemedText>
+            <ThemedText style={styles.phaseDuration}>
+              Duration: {phase.duration}
+              {phase.daysRemaining
+                ? ` (${phase.daysRemaining} days remaining)`
+                : ""}
+            </ThemedText>
+          </View>
+          <View
+            style={[
+              styles.phaseStatusBadge,
+              {
+                backgroundColor: isCurrentPhase
+                  ? "rgba(46, 204, 113, 0.1)"
+                  : "rgba(0,0,0,0.05)",
+              },
+            ]}
+          >
+            <ThemedText
               style={[
-                styles.phaseStatusBadge,
+                styles.phaseStatusText,
                 {
-                  backgroundColor: isCurrentPhase
-                    ? "rgba(46, 204, 113, 0.1)"
-                    : "rgba(0,0,0,0.05)",
+                  color: isCurrentPhase ? "#2ecc71" : Colors[theme].secondary,
                 },
               ]}
             >
+              {isCurrentPhase ? "Current" : "Upcoming"}
+            </ThemedText>
+          </View>
+        </View>
+
+        <View style={styles.progressBarContainer}>
+          <View
+            style={[
+              styles.progressBar,
+              {
+                width: `${phase.progress}%`,
+                backgroundColor: getProgressColor(phase.progress),
+              },
+            ]}
+          />
+          <ThemedText style={styles.progressText}>{phase.progress}%</ThemedText>
+        </View>
+
+        <View style={styles.metricsContainer}>
+          <View style={styles.metricItem}>
+            <ThemedText style={styles.metricLabel}>Profit Target</ThemedText>
+            <View style={styles.metricValueContainer}>
               <ThemedText
                 style={[
-                  styles.phaseStatusText,
+                  styles.metricValue,
                   {
-                    color: isCurrentPhase ? "#2ecc71" : Colors[theme].secondary,
+                    color:
+                      phase.profitTarget.achieved >= phase.profitTarget.required
+                        ? "#2ecc71"
+                        : Colors[theme].text,
                   },
                 ]}
               >
-                {isCurrentPhase ? "Current" : "Upcoming"}
+                {phase.profitTarget.achieved}%
+              </ThemedText>
+              <ThemedText style={styles.metricTarget}>
+                /{phase.profitTarget.required}%
               </ThemedText>
             </View>
           </View>
 
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  width: `${phase.progress}%`,
-                  backgroundColor: getProgressColor(phase.progress),
-                },
-              ]}
-            />
-            <ThemedText style={styles.progressText}>
-              {phase.progress}%
-            </ThemedText>
-          </View>
-
-          <View style={styles.metricsContainer}>
-            <View style={styles.metricItem}>
-              <ThemedText style={styles.metricLabel}>Profit Target</ThemedText>
-              <View style={styles.metricValueContainer}>
-                <ThemedText
-                  style={[
-                    styles.metricValue,
-                    {
-                      color:
-                        phase.profitTarget.achieved >=
-                        phase.profitTarget.required
-                          ? "#2ecc71"
-                          : Colors[theme].text,
-                    },
-                  ]}
-                >
-                  {phase.profitTarget.achieved}%
-                </ThemedText>
-                <ThemedText style={styles.metricTarget}>
-                  /{phase.profitTarget.required}%
-                </ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.metricItem}>
-              <ThemedText style={styles.metricLabel}>Max Drawdown</ThemedText>
-              <View style={styles.metricValueContainer}>
-                <ThemedText
-                  style={[
-                    styles.metricValue,
-                    {
-                      color:
-                        phase.maxDrawdown.current <= phase.maxDrawdown.limit
-                          ? "#2ecc71"
-                          : "#e74c3c",
-                    },
-                  ]}
-                >
-                  {phase.maxDrawdown.current}%
-                </ThemedText>
-                <ThemedText style={styles.metricTarget}>
-                  /max {phase.maxDrawdown.limit}%
-                </ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.metricItem}>
-              <ThemedText style={styles.metricLabel}>Trading Days</ThemedText>
-              <View style={styles.metricValueContainer}>
-                <ThemedText
-                  style={[
-                    styles.metricValue,
-                    {
-                      color:
-                        phase.tradingDays.completed >=
-                        phase.tradingDays.required
-                          ? "#2ecc71"
-                          : Colors[theme].text,
-                    },
-                  ]}
-                >
-                  {phase.tradingDays.completed}
-                </ThemedText>
-                <ThemedText style={styles.metricTarget}>
-                  /{phase.tradingDays.required}
-                </ThemedText>
-              </View>
+          <View style={styles.metricItem}>
+            <ThemedText style={styles.metricLabel}>Max Drawdown</ThemedText>
+            <View style={styles.metricValueContainer}>
+              <ThemedText
+                style={[
+                  styles.metricValue,
+                  {
+                    color:
+                      phase.maxDrawdown.current <= phase.maxDrawdown.limit
+                        ? "#2ecc71"
+                        : "#e74c3c",
+                  },
+                ]}
+              >
+                {phase.maxDrawdown.current}%
+              </ThemedText>
+              <ThemedText style={styles.metricTarget}>
+                /max {phase.maxDrawdown.limit}%
+              </ThemedText>
             </View>
           </View>
-        </ThemedView>
-      </Animated.View>
+
+          <View style={styles.metricItem}>
+            <ThemedText style={styles.metricLabel}>Trading Days</ThemedText>
+            <View style={styles.metricValueContainer}>
+              <ThemedText
+                style={[
+                  styles.metricValue,
+                  {
+                    color:
+                      phase.tradingDays.completed >= phase.tradingDays.required
+                        ? "#2ecc71"
+                        : Colors[theme].text,
+                  },
+                ]}
+              >
+                {phase.tradingDays.completed}
+              </ThemedText>
+              <ThemedText style={styles.metricTarget}>
+                /{phase.tradingDays.required}
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+      </ThemedView>
     );
   };
 
   const renderTradingStatsCard = () => (
-    <Animated.View entering={FadeInRight.delay(300)}>
-      <ThemedView variant="elevated" style={styles.statsCard}>
-        <ThemedText style={styles.cardTitle}>Trading Statistics</ThemedText>
+    <ThemedView variant="elevated" style={styles.statsCard}>
+      <ThemedText style={styles.cardTitle}>Trading Statistics</ThemedText>
 
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <ThemedText style={styles.statLabel}>Win Rate</ThemedText>
-            <ThemedText
-              style={[
-                styles.statValue,
-                { color: tradingStats.winRate >= 50 ? "#2ecc71" : "#e74c3c" },
-              ]}
-            >
-              {tradingStats.winRate}%
-            </ThemedText>
-          </View>
-
-          <View style={styles.statItem}>
-            <ThemedText style={styles.statLabel}>Avg. Win</ThemedText>
-            <ThemedText
-              style={[styles.statValue, { color: "#2ecc71" }]}
-            >{`${tradingStats.averageWin} EGP`}</ThemedText>
-          </View>
-
-          <View style={styles.statItem}>
-            <ThemedText style={styles.statLabel}>Avg. Loss</ThemedText>
-            <ThemedText
-              style={[styles.statValue, { color: "#e74c3c" }]}
-            >{`${tradingStats.averageLoss} EGP`}</ThemedText>
-          </View>
-
-          <View style={styles.statItem}>
-            <ThemedText style={styles.statLabel}>Profit Factor</ThemedText>
-            <ThemedText
-              style={[
-                styles.statValue,
-                {
-                  color:
-                    tradingStats.profitFactor >= 1.5 ? "#2ecc71" : "#e74c3c",
-                },
-              ]}
-            >
-              {tradingStats.profitFactor}
-            </ThemedText>
-          </View>
-
-          <View style={styles.statItem}>
-            <ThemedText style={styles.statLabel}>Total Trades</ThemedText>
-            <ThemedText style={styles.statValue}>
-              {tradingStats.totalTrades}
-            </ThemedText>
-          </View>
-
-          <View style={styles.statItem}>
-            <ThemedText style={styles.statLabel}>Sharpe Ratio</ThemedText>
-            <ThemedText
-              style={[
-                styles.statValue,
-                {
-                  color: tradingStats.sharpeRatio >= 1 ? "#2ecc71" : "#e74c3c",
-                },
-              ]}
-            >
-              {tradingStats.sharpeRatio}
-            </ThemedText>
-          </View>
+      <View style={styles.statsGrid}>
+        <View style={styles.statItem}>
+          <ThemedText style={styles.statLabel}>Win Rate</ThemedText>
+          <ThemedText
+            style={[
+              styles.statValue,
+              { color: tradingStats.winRate >= 50 ? "#2ecc71" : "#e74c3c" },
+            ]}
+          >
+            {tradingStats.winRate}%
+          </ThemedText>
         </View>
-      </ThemedView>
-    </Animated.View>
+
+        <View style={styles.statItem}>
+          <ThemedText style={styles.statLabel}>Avg. Win</ThemedText>
+          <ThemedText
+            style={[styles.statValue, { color: "#2ecc71" }]}
+          >{`${tradingStats.averageWin} EGP`}</ThemedText>
+        </View>
+
+        <View style={styles.statItem}>
+          <ThemedText style={styles.statLabel}>Avg. Loss</ThemedText>
+          <ThemedText
+            style={[styles.statValue, { color: "#e74c3c" }]}
+          >{`${tradingStats.averageLoss} EGP`}</ThemedText>
+        </View>
+
+        <View style={styles.statItem}>
+          <ThemedText style={styles.statLabel}>Profit Factor</ThemedText>
+          <ThemedText
+            style={[
+              styles.statValue,
+              {
+                color: tradingStats.profitFactor >= 1.5 ? "#2ecc71" : "#e74c3c",
+              },
+            ]}
+          >
+            {tradingStats.profitFactor}
+          </ThemedText>
+        </View>
+
+        <View style={styles.statItem}>
+          <ThemedText style={styles.statLabel}>Total Trades</ThemedText>
+          <ThemedText style={styles.statValue}>
+            {tradingStats.totalTrades}
+          </ThemedText>
+        </View>
+
+        <View style={styles.statItem}>
+          <ThemedText style={styles.statLabel}>Sharpe Ratio</ThemedText>
+          <ThemedText
+            style={[
+              styles.statValue,
+              {
+                color: tradingStats.sharpeRatio >= 1 ? "#2ecc71" : "#e74c3c",
+              },
+            ]}
+          >
+            {tradingStats.sharpeRatio}
+          </ThemedText>
+        </View>
+      </View>
+    </ThemedView>
   );
 
   const renderDailyPerformanceCard = () => (
-    <Animated.View entering={FadeInRight.delay(400)}>
-      <ThemedView variant="elevated" style={styles.chartCard}>
-        <ThemedText style={styles.cardTitle}>Daily Performance (%)</ThemedText>
-        <BarChart
-          data={dayPerformance}
-          width={screenWidth - 48}
-          height={220}
-          yAxisLabel=""
-          yAxisSuffix="%"
-          chartConfig={{
-            backgroundColor: "transparent",
-            backgroundGradientFrom: theme === "dark" ? "#1A1A1A" : "#FFFFFF",
-            backgroundGradientTo: theme === "dark" ? "#1A1A1A" : "#FFFFFF",
-            decimalPlaces: 1,
-            color: (opacity = 1) => `rgba(46, 204, 113, ${opacity})`,
-            labelColor: (opacity = 1) =>
-              theme === "dark"
-                ? `rgba(255, 255, 255, ${opacity})`
-                : `rgba(0, 0, 0, ${opacity})`,
-            style: {
-              borderRadius: 16,
-            },
-            barPercentage: 0.7,
-          }}
-          style={{
-            marginVertical: 8,
+    <ThemedView variant="elevated" style={styles.chartCard}>
+      <ThemedText style={styles.cardTitle}>Daily Performance (%)</ThemedText>
+      <BarChart
+        data={dayPerformance}
+        width={screenWidth - 48}
+        height={220}
+        yAxisLabel=""
+        yAxisSuffix="%"
+        chartConfig={{
+          backgroundColor: "transparent",
+          backgroundGradientFrom: theme === "dark" ? "#1A1A1A" : "#FFFFFF",
+          backgroundGradientTo: theme === "dark" ? "#1A1A1A" : "#FFFFFF",
+          decimalPlaces: 1,
+          color: (opacity = 1) => `rgba(46, 204, 113, ${opacity})`,
+          labelColor: (opacity = 1) =>
+            theme === "dark"
+              ? `rgba(255, 255, 255, ${opacity})`
+              : `rgba(0, 0, 0, ${opacity})`,
+          style: {
             borderRadius: 16,
-          }}
-          fromZero
-        />
-        <ThemedText style={styles.chartHelpText}>
-          Trading performance for the current week
-        </ThemedText>
-      </ThemedView>
-    </Animated.View>
+          },
+          barPercentage: 0.7,
+        }}
+        style={{
+          marginVertical: 8,
+          borderRadius: 16,
+        }}
+        fromZero
+      />
+      <ThemedText style={styles.chartHelpText}>
+        Trading performance for the current week
+      </ThemedText>
+    </ThemedView>
+  );
+
+  const renderProgressSummary = () => (
+    <ThemedView variant="elevated" style={styles.progressSummaryCard}>
+      <View style={styles.progressSummaryHeader}>
+        <View>
+          <ThemedText style={styles.progressCardTitle}>
+            Evaluation Progress
+          </ThemedText>
+          <ThemedText style={styles.progressCardSubtitle}>
+            Currently in Phase {evaluationProgress.currentPhase} of{" "}
+            {evaluationProgress.totalPhases}
+          </ThemedText>
+        </View>
+        <View style={styles.progressPercentageContainer}>
+          <View
+            style={[
+              styles.progressPercentageCircle,
+              { backgroundColor: getProgressColor(totalCompletionPercentage) },
+            ]}
+          >
+            <ThemedText style={styles.progressPercentageText}>
+              {Math.round(totalCompletionPercentage)}%
+            </ThemedText>
+          </View>
+        </View>
+      </View>
+    </ThemedView>
   );
 
   const renderOverview = () => (
     <>
-      <Animated.View entering={FadeInRight.delay(100)}>
-        <ThemedView variant="elevated" style={styles.progressCard}>
-          <LinearGradient
-            colors={[Colors[theme].primary + "20", "transparent"]}
-            style={styles.progressCardGradient}
-          >
-            <View style={styles.progressCardContent}>
-              <View>
-                <ThemedText style={styles.progressCardTitle}>
-                  Evaluation Progress
-                </ThemedText>
-                <ThemedText style={styles.progressCardSubtitle}>
-                  Currently in Phase {evaluationProgress.currentPhase} of{" "}
-                  {evaluationProgress.totalPhases}
-                </ThemedText>
-              </View>
-
-              <View style={styles.circularProgressContainer}>
-                <View style={styles.circularProgress}>
-                  <View
-                    style={[
-                      styles.circularProgressInner,
-                      {
-                        borderColor: getProgressColor(
-                          totalCompletionPercentage
-                        ),
-                        borderWidth: 5,
-                      },
-                    ]}
-                  />
-                  <ThemedText style={styles.circularProgressText}>
-                    {Math.round(totalCompletionPercentage)}%
-                  </ThemedText>
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
-        </ThemedView>
-      </Animated.View>
-
-      {evaluationProgress.phaseData.map((phase, index) =>
-        renderPhaseCard(phase, index + 2)
-      )}
-
+      {renderProgressSummary()}
+      {evaluationProgress.phaseData.map((phase) => renderPhaseCard(phase))}
       {renderTradingStatsCard()}
       {renderDailyPerformanceCard()}
 
-      <Animated.View entering={FadeInRight.delay(500)}>
-        <ThemedView variant="elevated" style={styles.calloutCard}>
-          <View style={styles.calloutHeader}>
-            <Ionicons
-              name="information-circle"
-              size={24}
-              color={Colors[theme].primary}
-            />
-            <ThemedText style={styles.calloutTitle}>
-              Path to Funded Status
-            </ThemedText>
-          </View>
-          <ThemedText style={styles.calloutText}>
-            Complete your evaluation by meeting all the requirements in both
-            phases. Once successful, you'll be awarded a funded account of
-            100,000 EGP where you can trade real money and keep up to 80% of
-            your profits.
+      <ThemedView variant="elevated" style={styles.calloutCard}>
+        <View style={styles.calloutHeader}>
+          <Ionicons
+            name="information-circle"
+            size={24}
+            color={Colors[theme].primary}
+          />
+          <ThemedText style={styles.calloutTitle}>
+            Path to Funded Status
           </ThemedText>
-        </ThemedView>
-      </Animated.View>
+        </View>
+        <ThemedText style={styles.calloutText}>
+          Complete your evaluation by meeting all the requirements in both
+          phases. Once successful, you'll be awarded a funded account of 100,000
+          EGP where you can trade real money and keep up to 80% of your profits.
+        </ThemedText>
+      </ThemedView>
     </>
   );
 
   const renderRules = () => (
-    <Animated.View entering={FadeInRight}>
-      <ThemedView variant="elevated" style={styles.rulesCard}>
-        <ThemedText style={styles.cardTitle}>Evaluation Rules</ThemedText>
+    <ThemedView variant="elevated" style={styles.rulesCard}>
+      <ThemedText style={styles.cardTitle}>Evaluation Rules</ThemedText>
 
-        <View style={styles.ruleItem}>
-          <View style={styles.ruleIconContainer}>
-            <Ionicons name="checkmark-circle" size={24} color="#2ecc71" />
-          </View>
-          <View style={styles.ruleContent}>
-            <ThemedText style={styles.ruleName}>Profit Target</ThemedText>
-            <ThemedText style={styles.ruleDescription}>
-              Achieve an 8% profit target in Phase 1 and 5% in Phase 2.
-            </ThemedText>
-          </View>
+      <View style={styles.ruleItem}>
+        <View style={styles.ruleIconContainer}>
+          <Ionicons name="checkmark-circle" size={24} color="#2ecc71" />
         </View>
+        <View style={styles.ruleContent}>
+          <ThemedText style={styles.ruleName}>Profit Target</ThemedText>
+          <ThemedText style={styles.ruleDescription}>
+            Achieve an 8% profit target in Phase 1 and 5% in Phase 2.
+          </ThemedText>
+        </View>
+      </View>
 
-        <View style={styles.ruleItem}>
-          <View style={styles.ruleIconContainer}>
-            <Ionicons name="close-circle" size={24} color="#e74c3c" />
-          </View>
-          <View style={styles.ruleContent}>
-            <ThemedText style={styles.ruleName}>Maximum Drawdown</ThemedText>
-            <ThemedText style={styles.ruleDescription}>
-              Keep your drawdown below 5% at all times. Exceeding this limit
-              will result in evaluation failure.
-            </ThemedText>
-          </View>
+      <View style={styles.ruleItem}>
+        <View style={styles.ruleIconContainer}>
+          <Ionicons name="close-circle" size={24} color="#e74c3c" />
         </View>
+        <View style={styles.ruleContent}>
+          <ThemedText style={styles.ruleName}>Maximum Drawdown</ThemedText>
+          <ThemedText style={styles.ruleDescription}>
+            Keep your drawdown below 5% at all times. Exceeding this limit will
+            result in evaluation failure.
+          </ThemedText>
+        </View>
+      </View>
 
-        <View style={styles.ruleItem}>
-          <View style={styles.ruleIconContainer}>
-            <Ionicons name="calendar" size={24} color={Colors[theme].primary} />
-          </View>
-          <View style={styles.ruleContent}>
-            <ThemedText style={styles.ruleName}>
-              Minimum Trading Days
-            </ThemedText>
-            <ThemedText style={styles.ruleDescription}>
-              Complete at least 10 trading days in Phase 1 and 20 days in Phase
-              2 to demonstrate consistency.
-            </ThemedText>
-          </View>
+      <View style={styles.ruleItem}>
+        <View style={styles.ruleIconContainer}>
+          <Ionicons name="calendar" size={24} color={Colors[theme].primary} />
         </View>
+        <View style={styles.ruleContent}>
+          <ThemedText style={styles.ruleName}>Minimum Trading Days</ThemedText>
+          <ThemedText style={styles.ruleDescription}>
+            Complete at least 10 trading days in Phase 1 and 20 days in Phase 2
+            to demonstrate consistency.
+          </ThemedText>
+        </View>
+      </View>
 
-        <View style={styles.ruleItem}>
-          <View style={styles.ruleIconContainer}>
-            <Ionicons
-              name="trending-up"
-              size={24}
-              color={Colors[theme].primary}
-            />
-          </View>
-          <View style={styles.ruleContent}>
-            <ThemedText style={styles.ruleName}>
-              Consistent Performance
-            </ThemedText>
-            <ThemedText style={styles.ruleDescription}>
-              Maintain steady growth and avoid excessive risk-taking or erratic
-              trading patterns.
-            </ThemedText>
-          </View>
+      <View style={styles.ruleItem}>
+        <View style={styles.ruleIconContainer}>
+          <Ionicons
+            name="trending-up"
+            size={24}
+            color={Colors[theme].primary}
+          />
         </View>
+        <View style={styles.ruleContent}>
+          <ThemedText style={styles.ruleName}>
+            Consistent Performance
+          </ThemedText>
+          <ThemedText style={styles.ruleDescription}>
+            Maintain steady growth and avoid excessive risk-taking or erratic
+            trading patterns.
+          </ThemedText>
+        </View>
+      </View>
 
-        <View style={styles.ruleItem}>
-          <View style={styles.ruleIconContainer}>
-            <Ionicons
-              name="time-outline"
-              size={24}
-              color={Colors[theme].primary}
-            />
-          </View>
-          <View style={styles.ruleContent}>
-            <ThemedText style={styles.ruleName}>Time Constraints</ThemedText>
-            <ThemedText style={styles.ruleDescription}>
-              Complete Phase 1 within 14 days and Phase 2 within 30 days from
-              activation.
-            </ThemedText>
-          </View>
+      <View style={styles.ruleItem}>
+        <View style={styles.ruleIconContainer}>
+          <Ionicons
+            name="time-outline"
+            size={24}
+            color={Colors[theme].primary}
+          />
         </View>
-      </ThemedView>
-    </Animated.View>
+        <View style={styles.ruleContent}>
+          <ThemedText style={styles.ruleName}>Time Constraints</ThemedText>
+          <ThemedText style={styles.ruleDescription}>
+            Complete Phase 1 within 14 days and Phase 2 within 30 days from
+            activation.
+          </ThemedText>
+        </View>
+      </View>
+    </ThemedView>
+  );
+
+  const renderLoading = () => (
+    <View style={styles.loadingContainer}>
+      <ThemedText style={styles.loadingText}>Loading data...</ThemedText>
+    </View>
   );
 
   if (accountMode !== "Evaluation") {
     return (
-      <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ThemedView style={styles.container}>
-          <View style={styles.headerContainer}>
-            <View style={styles.header}>
-              <ThemedText type="heading" style={styles.headerTitle}>
-                Progress
-              </ThemedText>
-            </View>
-          </View>
-
-          <View style={styles.accessDeniedContainer}>
-            <Ionicons
-              name="lock-closed"
-              size={80}
-              color="#FFC107"
-              style={styles.accessDeniedIcon}
-            />
-            <ThemedText style={styles.accessDeniedTitle}>
-              Evaluation Mode Only
-            </ThemedText>
-            <ThemedText style={styles.accessDeniedText}>
-              This feature is only available for users in Evaluation mode.
-              Switch your account mode to access the Progress tracking.
-            </ThemedText>
-
-            <TouchableOpacity
-              style={styles.switchModeButton}
-              onPress={switchToEvaluationMode}
-            >
-              <ThemedText style={styles.switchModeButtonText}>
-                Switch to Evaluation Mode
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-        </ThemedView>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
       <ThemedView style={styles.container}>
         <View style={styles.headerContainer}>
           <View style={styles.header}>
-            <ThemedText
-              type="heading"
-              style={[styles.headerTitle, { color: Colors[theme].primary }]}
-            >
+            <ThemedText type="heading" style={styles.headerTitle}>
               Progress
             </ThemedText>
           </View>
         </View>
 
-        {/* Tab selector */}
-        <View style={styles.tabsContainer}>
+        <View style={styles.accessDeniedContainer}>
+          <Ionicons
+            name="lock-closed"
+            size={80}
+            color="#FFC107"
+            style={styles.accessDeniedIcon}
+          />
+          <ThemedText style={styles.accessDeniedTitle}>
+            Evaluation Mode Only
+          </ThemedText>
+          <ThemedText style={styles.accessDeniedText}>
+            This feature is only available for users in Evaluation mode. Switch
+            your account mode to access the Progress tracking.
+          </ThemedText>
+
           <TouchableOpacity
-            style={[styles.tab, selectedTab === "overview" && styles.activeTab]}
-            onPress={() => setSelectedTab("overview")}
+            style={styles.switchModeButton}
+            onPress={switchToEvaluationMode}
           >
-            <ThemedText
-              style={[
-                styles.tabText,
-                selectedTab === "overview" && styles.activeTabText,
-              ]}
-            >
-              Overview
-            </ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, selectedTab === "rules" && styles.activeTab]}
-            onPress={() => setSelectedTab("rules")}
-          >
-            <ThemedText
-              style={[
-                styles.tabText,
-                selectedTab === "rules" && styles.activeTabText,
-              ]}
-            >
-              Rules
+            <ThemedText style={styles.switchModeButtonText}>
+              Switch to Evaluation Mode
             </ThemedText>
           </TouchableOpacity>
         </View>
-
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollViewContent}
-        >
-          {selectedTab === "overview" ? renderOverview() : renderRules()}
-        </ScrollView>
       </ThemedView>
-    </SafeAreaView>
+    );
+  }
+
+  return (
+    <ThemedView style={styles.container}>
+      <View style={styles.headerContainer}>
+        <View style={styles.header}>
+          <ThemedText
+            type="heading"
+            style={[styles.headerTitle, { color: Colors[theme].primary }]}
+          >
+            Progress
+          </ThemedText>
+        </View>
+      </View>
+
+      {/* Tab selector */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === "overview" && styles.activeTab]}
+          onPress={() => setSelectedTab("overview")}
+        >
+          <ThemedText
+            style={[
+              styles.tabText,
+              selectedTab === "overview" && styles.activeTabText,
+            ]}
+          >
+            Overview
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === "rules" && styles.activeTab]}
+          onPress={() => setSelectedTab("rules")}
+        >
+          <ThemedText
+            style={[
+              styles.tabText,
+              selectedTab === "rules" && styles.activeTabText,
+            ]}
+          >
+            Rules
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollViewContent}
+      >
+        {!isDataLoaded
+          ? renderLoading()
+          : selectedTab === "overview"
+          ? renderOverview()
+          : renderRules()}
+      </ScrollView>
+    </ThemedView>
   );
 }
 
@@ -624,7 +601,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 60,
     paddingBottom: 0,
   },
   header: {
@@ -664,18 +641,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 32,
   },
-  progressCard: {
-    borderRadius: 16,
-    overflow: "hidden",
-    marginBottom: 16,
-  },
-  progressCardGradient: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
-  progressCardContent: {
+  loadingText: {
+    fontSize: 16,
+    opacity: 0.8,
+  },
+  progressSummaryCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  progressSummaryHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  progressPercentageContainer: {
+    padding: 4,
+  },
+  progressPercentageCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  progressPercentageText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
   },
   progressCardTitle: {
     fontSize: 18,
@@ -685,35 +684,6 @@ const styles = StyleSheet.create({
   progressCardSubtitle: {
     fontSize: 14,
     opacity: 0.8,
-  },
-  circularProgressContainer: {
-    width: 80,
-    height: 80,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  circularProgress: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 8,
-    borderColor: "rgba(0,0,0,0.1)",
-  },
-  circularProgressInner: {
-    position: "absolute",
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderColor: "#2ecc71",
-    borderTopWidth: 0,
-    borderRightWidth: 0,
-    transform: [{ rotate: "135deg" }],
-  },
-  circularProgressText: {
-    fontSize: 18,
-    fontWeight: "700",
   },
   phaseCard: {
     borderRadius: 16,

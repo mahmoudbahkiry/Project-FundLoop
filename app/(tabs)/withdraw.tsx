@@ -6,7 +6,6 @@ import { useTradingContext } from "@/contexts/TradingContext";
 import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 
 export default function WithdrawScreen() {
@@ -22,80 +21,79 @@ export default function WithdrawScreen() {
   // If user is not in funded mode, show access denied
   if (accountMode !== "Funded") {
     return (
-      <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ThemedView style={styles.container}>
-          <View style={styles.headerContainer}>
-            <View style={styles.header}>
-              <ThemedText type="heading" style={styles.headerTitle}>
-                Withdrawals
-              </ThemedText>
-            </View>
-          </View>
-
-          <View style={styles.accessDeniedContainer}>
-            <Ionicons
-              name="lock-closed"
-              size={80}
-              color="#FFC107"
-              style={styles.accessDeniedIcon}
-            />
-            <ThemedText style={styles.accessDeniedTitle}>
-              Feature Locked
-            </ThemedText>
-            <ThemedText style={styles.accessDeniedText}>
-              Withdrawals are only available in Funded mode. Upgrade your
-              account to access this feature.
-            </ThemedText>
-            <TouchableOpacity
-              style={styles.upgradeButton}
-              onPress={() => router.push("/(tabs)/index")}
-            >
-              <ThemedText style={styles.upgradeButtonText}>
-                Go to Dashboard
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-        </ThemedView>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
       <ThemedView style={styles.container}>
         <View style={styles.headerContainer}>
           <View style={styles.header}>
-            <ThemedText
-              type="heading"
-              style={[styles.headerTitle, { color: Colors[theme].primary }]}
-            >
-              Withdraw Funds
+            <ThemedText type="heading" style={styles.headerTitle}>
+              Withdrawals
             </ThemedText>
           </View>
         </View>
 
-        <View style={styles.contentContainer}>
-          <ThemedView variant="elevated" style={styles.balanceCard}>
-            <ThemedText style={styles.balanceLabel}>
-              Available Balance
-            </ThemedText>
-            <ThemedText style={styles.balanceAmount}>
-              {balance.toLocaleString("en-US")} EGP
-            </ThemedText>
-          </ThemedView>
-
-          <ThemedText style={styles.formSectionTitle}>
-            Select Withdrawal Method
+        <View style={styles.accessDeniedContainer}>
+          <Ionicons
+            name="lock-closed"
+            size={80}
+            color="#FFC107"
+            style={styles.accessDeniedIcon}
+          />
+          <ThemedText style={styles.accessDeniedTitle}>
+            Feature Locked
           </ThemedText>
+          <ThemedText style={styles.accessDeniedText}>
+            Withdrawals are only available in Funded mode. Upgrade your account
+            to access this feature.
+          </ThemedText>
+          <TouchableOpacity
+            style={styles.upgradeButton}
+            onPress={() => router.push("/(tabs)/index")}
+          >
+            <ThemedText style={styles.upgradeButtonText}>
+              Go to Dashboard
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
+      </ThemedView>
+    );
+  }
 
-          <View style={styles.methodsContainer}>
+  return (
+    <ThemedView style={styles.container}>
+      <View style={styles.headerContainer}>
+        <View style={styles.header}>
+          <ThemedText
+            type="heading"
+            style={[styles.headerTitle, { color: Colors[theme].primary }]}
+          >
+            Withdraw Funds
+          </ThemedText>
+        </View>
+      </View>
+
+      <View style={styles.contentContainer}>
+        <ThemedView variant="elevated" style={styles.balanceCard}>
+          <ThemedText style={styles.balanceLabel}>Available Balance</ThemedText>
+          <ThemedText style={styles.balanceAmount}>
+            {balance.toLocaleString("en-US")} EGP
+          </ThemedText>
+        </ThemedView>
+
+        <ThemedText style={styles.formSectionTitle}>
+          Select Withdrawal Method
+        </ThemedText>
+
+        <View style={styles.methodsContainer}>
+          <ThemedView
+            variant="elevated"
+            style={[
+              styles.methodCard,
+              { borderLeftColor: "#00B894", borderLeftWidth: 4 },
+            ]}
+          >
             <TouchableOpacity
-              style={[
-                styles.methodCard,
-                { borderLeftColor: "#00B894", borderLeftWidth: 4 },
-              ]}
               onPress={() => navigateToMethod("instapay")}
               activeOpacity={0.7}
+              style={styles.methodTouchable}
             >
               <View
                 style={[
@@ -124,14 +122,19 @@ export default function WithdrawScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#00B894" />
               </View>
             </TouchableOpacity>
+          </ThemedView>
 
+          <ThemedView
+            variant="elevated"
+            style={[
+              styles.methodCard,
+              { borderLeftColor: "#0984E3", borderLeftWidth: 4 },
+            ]}
+          >
             <TouchableOpacity
-              style={[
-                styles.methodCard,
-                { borderLeftColor: "#0984E3", borderLeftWidth: 4 },
-              ]}
               onPress={() => navigateToMethod("bank")}
               activeOpacity={0.7}
+              style={styles.methodTouchable}
             >
               <View
                 style={[
@@ -158,14 +161,19 @@ export default function WithdrawScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#0984E3" />
               </View>
             </TouchableOpacity>
+          </ThemedView>
 
+          <ThemedView
+            variant="elevated"
+            style={[
+              styles.methodCard,
+              { borderLeftColor: "#FDCB6E", borderLeftWidth: 4 },
+            ]}
+          >
             <TouchableOpacity
-              style={[
-                styles.methodCard,
-                { borderLeftColor: "#FDCB6E", borderLeftWidth: 4 },
-              ]}
               onPress={() => navigateToMethod("crypto")}
               activeOpacity={0.7}
+              style={styles.methodTouchable}
             >
               <View
                 style={[
@@ -190,10 +198,10 @@ export default function WithdrawScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#FDCB6E" />
               </View>
             </TouchableOpacity>
-          </View>
+          </ThemedView>
         </View>
-      </ThemedView>
-    </SafeAreaView>
+      </View>
+    </ThemedView>
   );
 }
 
@@ -203,7 +211,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 60,
     paddingBottom: 8,
   },
   header: {
@@ -247,20 +255,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   methodCard: {
-    backgroundColor: "white",
     borderRadius: 16,
+    overflow: "hidden",
+  },
+  methodTouchable: {
     padding: 20,
     flexDirection: "row",
     alignItems: "center",
-    position: "relative",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   methodIconBg: {
     width: 56,
