@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -10,6 +10,7 @@ import {
   Platform,
   SafeAreaView,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -48,6 +49,23 @@ export default function BuyStockScreen() {
 
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [starred, setStarred] = useState(false);
+
+  // Add state for buy confirmation modal
+  const [buyConfirmVisible, setBuyConfirmVisible] = useState(false);
+  const [orderDetails, setOrderDetails] = useState<{
+    orderType: string;
+    quantity: number;
+    price: number;
+    totalValue: number;
+    isLimit: boolean;
+  } | null>(null);
+
+  // Separate state for tracking live modal price
+  const [liveModalPrice, setLiveModalPrice] = useState(0);
+  const [priceChanged, setPriceChanged] = useState(false);
+
+  // Use ref to track the latest price without causing re-renders
+  const latestPriceRef = useRef(0);
 
   // State variables
   const [orderType, setOrderType] = useState<OrderType>("cash");
@@ -174,91 +192,86 @@ export default function BuyStockScreen() {
       return;
     }
 
-    // Show order confirmation
-    let message = "";
+    // Create order details object for the modal
     let finalOrderType = "";
     let finalQuantity = 0;
     let finalPrice = 0;
-    let finalExecutionPrice = 0;
+    let totalValue = 0;
+    let isLimit = false;
 
     if (orderType === "cash") {
       finalOrderType = "market";
       finalQuantity = Math.floor(estimatedUnits); // Ensure whole units only
       finalPrice = latestPrice;
-      finalExecutionPrice = latestPrice;
-      // Calculate actual cash amount based on rounded units
-      const actualCashAmount = finalQuantity * latestPrice;
-      message = `Buy ${finalQuantity} units of ${symbol} for ${actualCashAmount.toLocaleString(
-        "en-US",
-        { style: "currency", currency: "EGP" }
-      )}`;
+      totalValue = finalQuantity * latestPrice;
     } else if (orderType === "units") {
       finalOrderType = "market";
       finalQuantity = Math.floor(parseFloat(units)); // Ensure whole units only
       finalPrice = latestPrice;
-      finalExecutionPrice = latestPrice;
-      message = `Buy ${finalQuantity} units of ${symbol} at market price (approximately ${(
-        finalQuantity * latestPrice
-      ).toLocaleString("en-US", { style: "currency", currency: "EGP" })})`;
+      totalValue = finalQuantity * latestPrice;
     } else if (orderType === "limit") {
       finalOrderType = "limit";
       finalQuantity = Math.floor(parseFloat(units)); // Ensure whole units only
       finalPrice = parseFloat(limitPrice);
-      message = `Place limit order to buy ${finalQuantity} units of ${symbol} at ${parseFloat(
-        limitPrice
-      ).toLocaleString("en-US", {
-        style: "currency",
-        currency: "EGP",
-      })} per unit (total: ${(
-        finalQuantity * parseFloat(limitPrice)
-      ).toLocaleString("en-US", {
-        style: "currency",
-        currency: "EGP",
-      })})`;
+      totalValue = finalQuantity * finalPrice;
+      isLimit = true;
     }
 
-    Alert.alert("Confirm Order", message, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Confirm",
-        style: "default",
-        onPress: async () => {
-          try {
-            setIsPlacingOrder(true);
-            // Create a new order
-            const time = new Date().toISOString();
-            const status = finalOrderType === "limit" ? "pending" : "filled";
+    // Set order details and show modal instead of alert
+    setOrderDetails({
+      orderType: finalOrderType,
+      quantity: finalQuantity,
+      price: finalPrice,
+      totalValue: totalValue,
+      isLimit: isLimit,
+    });
 
-            // Add the order to context
-            await addOrder({
-              symbol,
-              type: "buy",
-              orderType: finalOrderType as "market" | "limit" | "stop",
-              price: finalPrice,
-              quantity: finalQuantity,
-              status: status as "filled" | "pending" | "cancelled",
-              time,
-              executionPrice:
-                status === "filled" ? finalExecutionPrice : undefined,
-            });
+    setBuyConfirmVisible(true);
+  };
 
-            Alert.alert(
-              "Order Placed",
-              "Your order has been successfully placed!",
-              [{ text: "OK", onPress: () => router.back() }]
-            );
-          } catch (error) {
-            console.error("Error placing order:", error);
-            Alert.alert(
-              "Error",
-              "There was an error placing your order. Please try again."
-            );
-          } finally {
-            setIsPlacingOrder(false);
-          }
-        },
-      },
-    ]);
+  // Execute the buy order
+  const executeBuyOrder = async () => {
+    if (!orderDetails) return;
+
+    try {
+      setIsPlacingOrder(true);
+
+      // Create a new order
+      const time = new Date().toISOString();
+      const status = orderDetails.isLimit ? "pending" : "filled";
+
+      // Use the latest price for market orders
+      const executionPrice = orderDetails.isLimit
+        ? orderDetails.price
+        : liveModalPrice || orderDetails.price;
+
+      // Add the order to context
+      await addOrder({
+        symbol,
+        type: "buy",
+        orderType: orderDetails.orderType as "market" | "limit" | "stop",
+        price: orderDetails.isLimit ? orderDetails.price : executionPrice,
+        quantity: orderDetails.quantity,
+        status: status as "filled" | "pending" | "cancelled",
+        time,
+        // Only include executionPrice for filled orders
+        ...(status === "filled" ? { executionPrice } : {}),
+      });
+
+      // Close modal and show success alert
+      setBuyConfirmVisible(false);
+      Alert.alert("Order Placed", "Your order has been successfully placed!", [
+        { text: "OK", onPress: () => router.back() },
+      ]);
+    } catch (error) {
+      console.error("Error placing order:", error);
+      Alert.alert(
+        "Error",
+        "There was an error placing your order. Please try again."
+      );
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   // Format currency
@@ -270,6 +283,57 @@ export default function BuyStockScreen() {
       maximumFractionDigits: 2,
     });
   };
+
+  // Add effect to update price in modal
+  useEffect(() => {
+    // Only run this effect if the modal is visible with market order
+    if (buyConfirmVisible && orderDetails && !orderDetails.isLimit) {
+      // Initialize with current price
+      const initialPrice = orderDetails.price;
+      setLiveModalPrice(initialPrice);
+      latestPriceRef.current = initialPrice;
+      setPriceChanged(false);
+
+      // Get initial stock data and update price immediately
+      const stockData = getStockPrice(symbol);
+      if (stockData) {
+        const newPrice = stockData.lastPrice;
+        setLiveModalPrice(newPrice);
+        latestPriceRef.current = newPrice;
+
+        // Mark that price has changed only if it's different from initial
+        if (Math.abs(newPrice - initialPrice) > 0.001) {
+          setPriceChanged(true);
+        }
+      }
+
+      // Set up an interval to poll for price updates
+      const intervalId = setInterval(() => {
+        // Get the latest stock price from the context
+        const stockData = getStockPrice(symbol);
+        if (stockData) {
+          const newPrice = stockData.lastPrice;
+          const oldPrice = latestPriceRef.current;
+
+          // Only update if price has actually changed
+          if (Math.abs(newPrice - oldPrice) > 0.001) {
+            // Update the ref immediately
+            latestPriceRef.current = newPrice;
+
+            // Then update state which will trigger re-render
+            // Use a functional update to prevent unnecessary re-renders
+            setLiveModalPrice((prevPrice) => newPrice);
+            setPriceChanged(true);
+          }
+        }
+      }, 1000); // Reduced frequency from 500ms to 1000ms to prevent excessive re-renders
+
+      // Clean up interval on unmount or when modal closes
+      return () => {
+        clearInterval(intervalId);
+      };
+    }
+  }, [buyConfirmVisible, orderDetails, getStockPrice, symbol]);
 
   return (
     <>
@@ -291,332 +355,492 @@ export default function BuyStockScreen() {
         }}
       />
 
-      <SafeAreaView style={styles.container}>
-        {isPlacingOrder && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={Colors[theme].primary} />
-            <ThemedText style={styles.loadingText}>
-              Placing your order...
-            </ThemedText>
-          </View>
-        )}
-
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Stock Information */}
-          <View style={styles.stockInfoContainer}>
-            <View style={styles.stockHeader}>
-              <View>
-                <ThemedText style={styles.stockSymbol}>{symbol}</ThemedText>
-                <ThemedText style={styles.stockName}>{stockName}</ThemedText>
-              </View>
-              <View style={styles.priceContainer}>
-                <ThemedText style={styles.stockPrice}>
-                  {formatCurrency(currentPrice)}
-                </ThemedText>
-              </View>
-            </View>
-
-            {/* Add Balance Information */}
-            <View style={styles.balanceContainer}>
-              <ThemedText style={styles.balanceLabel}>
-                Available Funds:
-              </ThemedText>
-              <ThemedText style={styles.balanceAmount}>
-                {formatCurrency(balance)}
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+      >
+        <SafeAreaView style={styles.container}>
+          {isPlacingOrder && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={Colors[theme].primary} />
+              <ThemedText style={styles.loadingText}>
+                Placing your order...
               </ThemedText>
             </View>
-          </View>
+          )}
 
-          {/* Order Type Selection */}
-          <ThemedView variant="elevated" style={styles.orderTypeCard}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Order Type
-            </ThemedText>
-
-            <View style={styles.orderTypeButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.orderTypeButton,
-                  orderType === "cash" && {
-                    backgroundColor: "rgba(0, 168, 107, 0.1)",
-                    borderColor: Colors[theme].primary,
-                  },
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setOrderType("cash");
-                }}
-              >
-                <Ionicons
-                  name="cash-outline"
-                  size={20}
-                  color={
-                    orderType === "cash"
-                      ? Colors[theme].primary
-                      : Colors[theme].text
-                  }
-                  style={styles.orderTypeIcon}
-                />
-                <ThemedText
-                  style={[
-                    styles.orderTypeText,
-                    orderType === "cash" && { color: Colors[theme].primary },
-                  ]}
-                >
-                  Cash
-                </ThemedText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.orderTypeButton,
-                  orderType === "units" && {
-                    backgroundColor: "rgba(0, 168, 107, 0.1)",
-                    borderColor: Colors[theme].primary,
-                  },
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setOrderType("units");
-                }}
-              >
-                <Ionicons
-                  name="calculator-outline"
-                  size={20}
-                  color={
-                    orderType === "units"
-                      ? Colors[theme].primary
-                      : Colors[theme].text
-                  }
-                  style={styles.orderTypeIcon}
-                />
-                <ThemedText
-                  style={[
-                    styles.orderTypeText,
-                    orderType === "units" && { color: Colors[theme].primary },
-                  ]}
-                >
-                  Units
-                </ThemedText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.orderTypeButton,
-                  orderType === "limit" && {
-                    backgroundColor: "rgba(0, 168, 107, 0.1)",
-                    borderColor: Colors[theme].primary,
-                  },
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setOrderType("limit");
-                }}
-              >
-                <Ionicons
-                  name="trending-up-outline"
-                  size={20}
-                  color={
-                    orderType === "limit"
-                      ? Colors[theme].primary
-                      : Colors[theme].text
-                  }
-                  style={styles.orderTypeIcon}
-                />
-                <ThemedText
-                  style={[
-                    styles.orderTypeText,
-                    orderType === "limit" && { color: Colors[theme].primary },
-                  ]}
-                >
-                  Limit Order
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-          </ThemedView>
-
-          {/* Order Details */}
-          <ThemedView variant="elevated" style={styles.orderDetailsCard}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Order Details
-            </ThemedText>
-
-            {orderType === "cash" && (
-              <>
-                <View style={styles.inputContainer}>
-                  <ThemedText style={styles.inputLabel}>
-                    Cash Amount (EGP)
-                  </ThemedText>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      { color: Colors[theme].text, borderColor: "#E0E0E0" },
-                    ]}
-                    value={cashAmount}
-                    onChangeText={setCashAmount}
-                    keyboardType="decimal-pad"
-                    placeholder="Enter amount"
-                    placeholderTextColor={Colors[theme].icon}
-                  />
-                </View>
-
-                <View style={styles.summaryContainer}>
-                  <View style={styles.summaryRow}>
-                    <ThemedText style={styles.summaryLabel}>
-                      Current Price
-                    </ThemedText>
-                    <ThemedText style={styles.summaryValue}>
-                      {formatCurrency(currentPrice)}
-                    </ThemedText>
-                  </View>
-
-                  <View style={styles.summaryRow}>
-                    <ThemedText style={styles.summaryLabel}>
-                      Estimated Units
-                    </ThemedText>
-                    <ThemedText style={styles.summaryValue}>
-                      {Math.floor(estimatedUnits)}
-                    </ThemedText>
-                  </View>
-
-                  <ThemedText type="caption" style={styles.wholeUnitsNote}>
-                    Only whole units can be purchased. Partial units are rounded
-                    down.
-                  </ThemedText>
-                </View>
-              </>
-            )}
-
-            {orderType === "units" && (
-              <>
-                <View style={styles.inputContainer}>
-                  <ThemedText style={styles.inputLabel}>
-                    Number of Units
-                  </ThemedText>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      { color: Colors[theme].text, borderColor: "#E0E0E0" },
-                    ]}
-                    value={units}
-                    onChangeText={setUnits}
-                    keyboardType="decimal-pad"
-                    placeholder="Enter units"
-                    placeholderTextColor={Colors[theme].icon}
-                  />
-                </View>
-
-                <View style={styles.summaryContainer}>
-                  <View style={styles.summaryRow}>
-                    <ThemedText style={styles.summaryLabel}>
-                      Current Price
-                    </ThemedText>
-                    <ThemedText style={styles.summaryValue}>
-                      {formatCurrency(currentPrice)}
-                    </ThemedText>
-                  </View>
-
-                  <View style={styles.summaryRow}>
-                    <ThemedText style={styles.summaryLabel}>
-                      Total Value
-                    </ThemedText>
-                    <ThemedText style={styles.summaryValue}>
-                      {formatCurrency(
-                        Math.floor(parseFloat(units || "0")) * currentPrice
-                      )}
-                    </ThemedText>
-                  </View>
-                </View>
-              </>
-            )}
-
-            {orderType === "limit" && (
-              <>
-                <View style={styles.inputContainer}>
-                  <ThemedText style={styles.inputLabel}>
-                    Number of Units
-                  </ThemedText>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      { color: Colors[theme].text, borderColor: "#E0E0E0" },
-                    ]}
-                    value={units}
-                    onChangeText={setUnits}
-                    keyboardType="decimal-pad"
-                    placeholder="Enter units"
-                    placeholderTextColor={Colors[theme].icon}
-                  />
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <ThemedText style={styles.inputLabel}>
-                    Limit Price (EGP)
-                  </ThemedText>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      { color: Colors[theme].text, borderColor: "#E0E0E0" },
-                    ]}
-                    value={limitPrice}
-                    onChangeText={setLimitPrice}
-                    keyboardType="decimal-pad"
-                    placeholder="Enter price"
-                    placeholderTextColor={Colors[theme].icon}
-                  />
-                </View>
-
-                <View style={styles.summaryContainer}>
-                  <View style={styles.summaryRow}>
-                    <ThemedText style={styles.summaryLabel}>
-                      Current Market Price
-                    </ThemedText>
-                    <ThemedText style={styles.summaryValue}>
-                      {formatCurrency(currentPrice)}
-                    </ThemedText>
-                  </View>
-
-                  <View style={styles.summaryRow}>
-                    <ThemedText style={styles.summaryLabel}>
-                      Total Order Value
-                    </ThemedText>
-                    <ThemedText style={styles.summaryValue}>
-                      {formatCurrency(
-                        Math.floor(parseFloat(units || "0")) *
-                          parseFloat(limitPrice || "0")
-                      )}
-                    </ThemedText>
-                  </View>
-                </View>
-
-                <ThemedText type="caption" style={styles.limitExplanation}>
-                  Your order will execute only when the stock price reaches or
-                  drops below your limit price.
-                </ThemedText>
-              </>
-            )}
-          </ThemedView>
-
-          {/* Place Order Button */}
-          <TouchableOpacity
-            style={[
-              styles.placeOrderButton,
-              { backgroundColor: Colors[theme].primary },
-              isPlacingOrder && styles.disabledButton,
-            ]}
-            onPress={handlePlaceOrder}
-            disabled={isPlacingOrder}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+            scrollEventThrottle={16}
+            removeClippedSubviews={false}
           >
-            <ThemedText style={styles.placeOrderButtonText}>
-              {isPlacingOrder ? "Processing..." : "Place Order"}
-            </ThemedText>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
+            {/* Stock Information */}
+            <View style={styles.stockInfoContainer}>
+              <View style={styles.stockHeader}>
+                <View>
+                  <ThemedText style={styles.stockSymbol}>{symbol}</ThemedText>
+                  <ThemedText style={styles.stockName}>{stockName}</ThemedText>
+                </View>
+                <View style={styles.priceContainer}>
+                  <ThemedText style={styles.stockPrice}>
+                    {formatCurrency(currentPrice)}
+                  </ThemedText>
+                </View>
+              </View>
+
+              {/* Add Balance Information */}
+              <View style={styles.balanceContainer}>
+                <ThemedText style={styles.balanceLabel}>
+                  Available Funds:
+                </ThemedText>
+                <ThemedText style={styles.balanceAmount}>
+                  {formatCurrency(balance)}
+                </ThemedText>
+              </View>
+            </View>
+
+            {/* Order Type Selection */}
+            <ThemedView variant="elevated" style={styles.orderTypeCard}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Order Type
+              </ThemedText>
+
+              <View style={styles.orderTypeButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.orderTypeButton,
+                    orderType === "cash" && {
+                      backgroundColor: "rgba(0, 168, 107, 0.1)",
+                      borderColor: Colors[theme].primary,
+                    },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setOrderType("cash");
+                  }}
+                >
+                  <Ionicons
+                    name="cash-outline"
+                    size={20}
+                    color={
+                      orderType === "cash"
+                        ? Colors[theme].primary
+                        : Colors[theme].text
+                    }
+                    style={styles.orderTypeIcon}
+                  />
+                  <ThemedText
+                    style={[
+                      styles.orderTypeText,
+                      orderType === "cash" && { color: Colors[theme].primary },
+                    ]}
+                  >
+                    Cash
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.orderTypeButton,
+                    orderType === "units" && {
+                      backgroundColor: "rgba(0, 168, 107, 0.1)",
+                      borderColor: Colors[theme].primary,
+                    },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setOrderType("units");
+                  }}
+                >
+                  <Ionicons
+                    name="calculator-outline"
+                    size={20}
+                    color={
+                      orderType === "units"
+                        ? Colors[theme].primary
+                        : Colors[theme].text
+                    }
+                    style={styles.orderTypeIcon}
+                  />
+                  <ThemedText
+                    style={[
+                      styles.orderTypeText,
+                      orderType === "units" && { color: Colors[theme].primary },
+                    ]}
+                  >
+                    Units
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.orderTypeButton,
+                    orderType === "limit" && {
+                      backgroundColor: "rgba(0, 168, 107, 0.1)",
+                      borderColor: Colors[theme].primary,
+                    },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setOrderType("limit");
+                  }}
+                >
+                  <Ionicons
+                    name="trending-up-outline"
+                    size={20}
+                    color={
+                      orderType === "limit"
+                        ? Colors[theme].primary
+                        : Colors[theme].text
+                    }
+                    style={styles.orderTypeIcon}
+                  />
+                  <ThemedText
+                    style={[
+                      styles.orderTypeText,
+                      orderType === "limit" && { color: Colors[theme].primary },
+                    ]}
+                  >
+                    Limit Order
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </ThemedView>
+
+            {/* Order Details */}
+            <ThemedView variant="elevated" style={styles.orderDetailsCard}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Order Details
+              </ThemedText>
+
+              {orderType === "cash" && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <ThemedText style={styles.inputLabel}>
+                      Cash Amount (EGP)
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        { color: Colors[theme].text, borderColor: "#E0E0E0" },
+                      ]}
+                      value={cashAmount}
+                      onChangeText={setCashAmount}
+                      keyboardType="decimal-pad"
+                      placeholder="Enter amount"
+                      placeholderTextColor={Colors[theme].icon}
+                    />
+                  </View>
+
+                  <View style={styles.summaryContainer}>
+                    <View style={styles.summaryRow}>
+                      <ThemedText style={styles.summaryLabel}>
+                        Current Price
+                      </ThemedText>
+                      <ThemedText style={styles.summaryValue}>
+                        {formatCurrency(currentPrice)}
+                      </ThemedText>
+                    </View>
+
+                    <View style={styles.summaryRow}>
+                      <ThemedText style={styles.summaryLabel}>
+                        Estimated Units
+                      </ThemedText>
+                      <ThemedText style={styles.summaryValue}>
+                        {Math.floor(estimatedUnits)}
+                      </ThemedText>
+                    </View>
+
+                    <ThemedText type="caption" style={styles.wholeUnitsNote}>
+                      Only whole units can be purchased. Partial units are
+                      rounded down.
+                    </ThemedText>
+                  </View>
+                </>
+              )}
+
+              {orderType === "units" && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <ThemedText style={styles.inputLabel}>
+                      Number of Units
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        { color: Colors[theme].text, borderColor: "#E0E0E0" },
+                      ]}
+                      value={units}
+                      onChangeText={setUnits}
+                      keyboardType="decimal-pad"
+                      placeholder="Enter units"
+                      placeholderTextColor={Colors[theme].icon}
+                    />
+                  </View>
+
+                  <View style={styles.summaryContainer}>
+                    <View style={styles.summaryRow}>
+                      <ThemedText style={styles.summaryLabel}>
+                        Current Price
+                      </ThemedText>
+                      <ThemedText style={styles.summaryValue}>
+                        {formatCurrency(currentPrice)}
+                      </ThemedText>
+                    </View>
+
+                    <View style={styles.summaryRow}>
+                      <ThemedText style={styles.summaryLabel}>
+                        Total Value
+                      </ThemedText>
+                      <ThemedText style={styles.summaryValue}>
+                        {formatCurrency(
+                          Math.floor(parseFloat(units || "0")) * currentPrice
+                        )}
+                      </ThemedText>
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {orderType === "limit" && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <ThemedText style={styles.inputLabel}>
+                      Number of Units
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        { color: Colors[theme].text, borderColor: "#E0E0E0" },
+                      ]}
+                      value={units}
+                      onChangeText={setUnits}
+                      keyboardType="decimal-pad"
+                      placeholder="Enter units"
+                      placeholderTextColor={Colors[theme].icon}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <ThemedText style={styles.inputLabel}>
+                      Limit Price (EGP)
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        { color: Colors[theme].text, borderColor: "#E0E0E0" },
+                      ]}
+                      value={limitPrice}
+                      onChangeText={setLimitPrice}
+                      keyboardType="decimal-pad"
+                      placeholder="Enter price"
+                      placeholderTextColor={Colors[theme].icon}
+                    />
+                  </View>
+
+                  <View style={styles.summaryContainer}>
+                    <View style={styles.summaryRow}>
+                      <ThemedText style={styles.summaryLabel}>
+                        Current Market Price
+                      </ThemedText>
+                      <ThemedText style={styles.summaryValue}>
+                        {formatCurrency(currentPrice)}
+                      </ThemedText>
+                    </View>
+
+                    <View style={styles.summaryRow}>
+                      <ThemedText style={styles.summaryLabel}>
+                        Total Order Value
+                      </ThemedText>
+                      <ThemedText style={styles.summaryValue}>
+                        {formatCurrency(
+                          Math.floor(parseFloat(units || "0")) *
+                            parseFloat(limitPrice || "0")
+                        )}
+                      </ThemedText>
+                    </View>
+                  </View>
+
+                  <ThemedText type="caption" style={styles.limitExplanation}>
+                    Your order will execute only when the stock price reaches or
+                    drops below your limit price.
+                  </ThemedText>
+                </>
+              )}
+            </ThemedView>
+
+            {/* Place Order Button */}
+            <TouchableOpacity
+              style={[
+                styles.placeOrderButton,
+                { backgroundColor: Colors[theme].primary },
+                isPlacingOrder && styles.disabledButton,
+              ]}
+              onPress={handlePlaceOrder}
+              disabled={isPlacingOrder}
+            >
+              <ThemedText style={styles.placeOrderButtonText}>
+                {isPlacingOrder ? "Processing..." : "Place Order"}
+              </ThemedText>
+            </TouchableOpacity>
+          </ScrollView>
+
+          {/* Buy Confirmation Modal */}
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={buyConfirmVisible}
+            onRequestClose={() => setBuyConfirmVisible(false)}
+          >
+            <View style={styles.modalContainer}>
+              <ThemedView style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <ThemedText type="subtitle" style={styles.modalTitle}>
+                    Confirm Buy Order
+                  </ThemedText>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setBuyConfirmVisible(false)}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={24}
+                      color={Colors[theme].icon}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {orderDetails && (
+                  <View style={styles.buyModalContent}>
+                    <ThemedText style={styles.confirmText}>
+                      Are you sure you want to buy{" "}
+                      <ThemedText style={styles.highlightText}>
+                        {orderDetails.quantity}
+                      </ThemedText>{" "}
+                      shares of{" "}
+                      <ThemedText style={styles.symbolText}>
+                        {symbol}
+                      </ThemedText>
+                      ?
+                    </ThemedText>
+
+                    <View style={styles.sellDetailsCard}>
+                      {orderDetails.isLimit ? (
+                        <View style={styles.sellDetailRow}>
+                          <ThemedText style={styles.sellDetailLabel}>
+                            Limit Price:
+                          </ThemedText>
+                          <ThemedText style={styles.sellDetailValue}>
+                            {formatCurrency(orderDetails.price)}
+                          </ThemedText>
+                        </View>
+                      ) : (
+                        <View style={styles.sellDetailRow}>
+                          <ThemedText style={styles.sellDetailLabel}>
+                            Market Price:
+                          </ThemedText>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                            }}
+                          >
+                            <ThemedText style={styles.sellDetailValue}>
+                              {formatCurrency(liveModalPrice)}
+                            </ThemedText>
+                            {priceChanged && (
+                              <Ionicons
+                                name="sync-outline"
+                                size={12}
+                                color={Colors[theme].primary}
+                                style={{ marginLeft: 4 }}
+                              />
+                            )}
+                          </View>
+                        </View>
+                      )}
+
+                      <View style={styles.sellDetailRow}>
+                        <ThemedText style={styles.sellDetailLabel}>
+                          Quantity:
+                        </ThemedText>
+                        <ThemedText style={styles.sellDetailValue}>
+                          {orderDetails.quantity} shares
+                        </ThemedText>
+                      </View>
+
+                      <View style={styles.sellDetailRow}>
+                        <ThemedText style={styles.sellDetailLabel}>
+                          Order Type:
+                        </ThemedText>
+                        <ThemedText style={styles.sellDetailValue}>
+                          {orderDetails.isLimit ? "Limit" : "Market"}
+                        </ThemedText>
+                      </View>
+
+                      <View
+                        style={[styles.sellDetailRow, styles.totalValueRow]}
+                      >
+                        <ThemedText style={styles.totalValueLabel}>
+                          Total Cost:
+                        </ThemedText>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                          }}
+                        >
+                          <ThemedText style={styles.totalValueAmount}>
+                            {orderDetails.isLimit
+                              ? formatCurrency(orderDetails.totalValue)
+                              : formatCurrency(
+                                  liveModalPrice * orderDetails.quantity
+                                )}
+                          </ThemedText>
+                          {!orderDetails.isLimit && priceChanged && (
+                            <Ionicons
+                              name="sync-outline"
+                              size={12}
+                              color={Colors[theme].primary}
+                              style={{ marginLeft: 4 }}
+                            />
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => setBuyConfirmVisible(false)}
+                  >
+                    <ThemedText style={styles.cancelButtonText}>
+                      Cancel
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.confirmButton,
+                      { backgroundColor: Colors[theme].primary },
+                    ]}
+                    onPress={executeBuyOrder}
+                  >
+                    <ThemedText style={styles.confirmButtonText}>
+                      Confirm
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </ThemedView>
+            </View>
+          </Modal>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </>
   );
 }
@@ -783,5 +1007,135 @@ const styles = StyleSheet.create({
   starButton: {
     padding: 8,
     marginRight: 8,
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    borderRadius: 16,
+    paddingTop: 20,
+    paddingBottom: 24,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 0,
+    right: 10,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buyModalContent: {
+    paddingHorizontal: 24,
+  },
+  sellDetailsCard: {
+    marginVertical: 20,
+    padding: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.03)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.08)",
+  },
+  sellDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  sellDetailLabel: {
+    fontWeight: "500",
+    opacity: 0.7,
+    fontSize: 14,
+  },
+  sellDetailValue: {
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  symbolText: {
+    fontWeight: "700",
+    color: Colors.light.primary,
+  },
+  highlightText: {
+    fontWeight: "700",
+  },
+  confirmText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  totalValueRow: {
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 0, 0, 0.08)",
+    paddingTop: 12,
+    marginTop: 4,
+  },
+  totalValueLabel: {
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  totalValueAmount: {
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10,
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: "#F1F1F1",
+    alignItems: "center",
+    maxWidth: 140,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.08)",
+  },
+  cancelButtonText: {
+    color: "#555555",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    maxWidth: 140,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  confirmButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

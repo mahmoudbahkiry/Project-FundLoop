@@ -35,59 +35,117 @@ export const calculateTradeMetrics = (orders: Order[]): TradeMetrics => {
     };
   }
 
-  // Calculate P&L for each order
-  const tradesWithPnl = filledOrders.map(order => {
-    const entryPrice = order.price;
-    const exitPrice = order.executionPrice || order.price;
-    const quantity = order.quantity;
-    
-    // Calculate P&L based on order type (buy or sell)
-    let pnl = 0;
-    if (order.type === "buy") {
-      // For buys: (exitPrice - entryPrice) * quantity
-      pnl = (exitPrice - entryPrice) * quantity;
-    } else {
-      // For sells: (entryPrice - exitPrice) * quantity
-      pnl = (entryPrice - exitPrice) * quantity;
+  // Count all selling trades for total trades metric
+  const allSellingTrades = filledOrders.filter(order => order.type === "sell").length;
+
+  // Group orders by symbol to match buy and sell pairs for P&L calculation
+  const ordersBySymbol: Record<string, Order[]> = {};
+  filledOrders.forEach(order => {
+    if (!ordersBySymbol[order.symbol]) {
+      ordersBySymbol[order.symbol] = [];
     }
-    
-    return {
-      ...order,
-      pnl,
-      isProfitable: pnl > 0
-    };
+    ordersBySymbol[order.symbol].push(order);
   });
 
-  // Calculate total P&L
-  const totalPnl = tradesWithPnl.reduce((sum, trade) => sum + trade.pnl, 0);
+  // Process each symbol to calculate P&L for matched trades (buy+sell pairs)
+  const trades: {
+    symbol: string;
+    entryPrice: number;
+    exitPrice: number;
+    quantity: number;
+    pnl: number;
+    isProfitable: boolean;
+  }[] = [];
+
+  // Process all filled orders to calculate P&L
+  Object.entries(ordersBySymbol).forEach(([symbol, symbolOrders]) => {
+    // Sort orders by time for each symbol
+    const sortedOrders = [...symbolOrders].sort(
+      (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+    );
+    
+    // Track remaining shares from buy orders
+    let buyOrdersStack: {
+      price: number;
+      quantity: number;
+      time: string;
+    }[] = [];
+    
+    // Process orders chronologically
+    sortedOrders.forEach(order => {
+      const price = order.executionPrice || order.price;
+      
+      if (order.type === "buy") {
+        // Add buy order to the stack
+        buyOrdersStack.push({
+          price,
+          quantity: order.quantity,
+          time: order.time,
+        });
+      } else if (order.type === "sell" && buyOrdersStack.length > 0) {
+        // Match sell orders against available buy orders (FIFO)
+        let remainingQuantity = order.quantity;
+        
+        while (remainingQuantity > 0 && buyOrdersStack.length > 0) {
+          const oldestBuy = buyOrdersStack[0];
+          const matchedQuantity = Math.min(remainingQuantity, oldestBuy.quantity);
+          
+          // Calculate P&L for this matched quantity
+          const pnl = (price - oldestBuy.price) * matchedQuantity;
+          
+          // Add this matched trade to our trades list
+          trades.push({
+            symbol,
+            entryPrice: oldestBuy.price,
+            exitPrice: price,
+            quantity: matchedQuantity,
+            pnl,
+            isProfitable: pnl > 0,
+          });
+          
+          // Update remaining quantities
+          remainingQuantity -= matchedQuantity;
+          oldestBuy.quantity -= matchedQuantity;
+          
+          // Remove buy order if fully utilized
+          if (oldestBuy.quantity <= 0) {
+            buyOrdersStack.shift();
+          }
+        }
+      }
+    });
+  });
   
-  // Count winning and losing trades
-  const winningTrades = tradesWithPnl.filter(trade => trade.isProfitable).length;
-  const losingTrades = tradesWithPnl.length - winningTrades;
+  // Calculate metrics based on matched trades for P&L analysis
+  const winningTrades = trades.filter(trade => trade.isProfitable).length;
+  const losingTrades = trades.length - winningTrades;
   
-  // Calculate win rate
-  const winRate = (winningTrades / tradesWithPnl.length) * 100;
+  // Calculate win rate based on matched trades
+  const winRate = trades.length > 0 ? (winningTrades / trades.length) * 100 : 0;
   
-  // Calculate average win and loss
-  const winningTradesData = tradesWithPnl.filter(trade => trade.isProfitable);
-  const losingTradesData = tradesWithPnl.filter(trade => !trade.isProfitable);
+  // Calculate profit amounts
+  const winningTradesData = trades.filter(trade => trade.isProfitable);
+  const losingTradesData = trades.filter(trade => !trade.isProfitable);
   
   const totalWinAmount = winningTradesData.reduce((sum, trade) => sum + trade.pnl, 0);
-  const totalLossAmount = losingTradesData.reduce((sum, trade) => sum + trade.pnl, 0);
+  const totalLossAmount = Math.abs(losingTradesData.reduce((sum, trade) => sum + trade.pnl, 0));
   
   const averageWin = winningTradesData.length > 0 ? totalWinAmount / winningTradesData.length : 0;
   const averageLoss = losingTradesData.length > 0 ? totalLossAmount / losingTradesData.length : 0;
   
   // Calculate profit factor
-  const profitFactor = totalLossAmount !== 0 ? Math.abs(totalWinAmount / totalLossAmount) : 0;
+  const profitFactor = totalLossAmount > 0 ? totalWinAmount / totalLossAmount : 0;
+  
+  // Calculate total P&L
+  const totalPnl = trades.reduce((sum, trade) => sum + trade.pnl, 0);
   
   return {
-    totalTrades: tradesWithPnl.length,
+    totalTrades: allSellingTrades,  // Use the count of all selling trades
     winningTrades,
     losingTrades,
     winRate,
     averageWin,
-    averageLoss: Math.abs(averageLoss), // Return as positive number
+    averageLoss,
     profitFactor,
     totalPnl,
   };

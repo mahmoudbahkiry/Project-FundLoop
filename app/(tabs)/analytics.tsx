@@ -145,22 +145,62 @@ export default function AnalyticsScreen() {
   // Load orders from context when component mounts, timeframe changes, or accountMode changes
   useEffect(() => {
     // The orders from context are already filtered by account mode
-    if (contextOrders) {
+    if (contextOrders && contextOrders.length > 0) {
       processOrders(contextOrders);
+    } else {
+      // Clear metrics if no orders are available
+      setTradeMetrics({
+        totalTrades: 0,
+        winningTrades: 0,
+        losingTrades: 0,
+        winRate: 0,
+        averageWin: 0,
+        averageLoss: 0,
+        profitFactor: 0,
+        totalPnl: 0,
+      });
     }
+    // Dependencies include timeframe, contextOrders, and accountMode to ensure
+    // metrics are recalculated whenever any of these change
   }, [timeframe, contextOrders, accountMode]);
 
   // Process orders to calculate metrics
   const processOrders = (orderData: Order[]) => {
     try {
       // Filter orders by timeframe and calculate metrics
+      setIsLoadingOrders(true);
+      setOrdersError(null);
+
+      // Filter orders by filled status first
+      // Note: orderData is already filtered by account mode in the TradingContext
+      // The calculateTradeMetrics function will count completed trades (sell orders matched with buys)
+      const filledOrders = orderData.filter(
+        (order) => order.status === "filled"
+      );
+
+      if (filledOrders.length === 0) {
+        setTradeMetrics({
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0,
+          winRate: 0,
+          averageWin: 0,
+          averageLoss: 0,
+          profitFactor: 0,
+          totalPnl: 0,
+        });
+        setOrders([]);
+        setIsLoadingOrders(false);
+        return;
+      }
+
       const timeframeFilteredOrders = filterOrdersByTimeframe(
-        orderData,
+        filledOrders,
         timeframe
       );
       const metrics = calculateTradeMetrics(timeframeFilteredOrders);
 
-      setOrders(orderData);
+      setOrders(timeframeFilteredOrders);
       setTradeMetrics(metrics);
       setIsLoadingOrders(false);
     } catch (error) {
@@ -177,8 +217,10 @@ export default function AnalyticsScreen() {
       if (user) {
         if (activeTab === "journal") {
           await loadJournalEntries();
+        } else if (activeTab === "performance") {
+          // Recalculate metrics with the current context data
+          processOrders(contextOrders);
         }
-        // For performance tab, we use context data which is managed elsewhere
       }
     } catch (error) {
       console.error("Error refreshing data:", error);
@@ -849,28 +891,6 @@ export default function AnalyticsScreen() {
                 <ThemedText type="subtitle" style={styles.cardTitle}>
                   Performance Overview
                 </ThemedText>
-                <View
-                  style={[
-                    styles.periodBadge,
-                    {
-                      backgroundColor:
-                        theme === "dark"
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : "rgba(0, 0, 0, 0.05)",
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="calendar-outline"
-                    size={14}
-                    color={Colors[theme].primary}
-                    style={{ marginRight: 4 }}
-                  />
-                  <ThemedText style={styles.periodText}>
-                    {accountMode} -{" "}
-                    {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
-                  </ThemedText>
-                </View>
               </View>
 
               {/* Timeframe selector */}
@@ -1090,7 +1110,7 @@ export default function AnalyticsScreen() {
                         {formatCurrency(tradeMetrics.totalPnl)}
                       </ThemedText>
                       <ThemedText style={styles.statSubtext}>
-                        {tradeMetrics.totalTrades} trades
+                        {tradeMetrics.totalTrades} completed trades
                       </ThemedText>
                     </View>
                   </LinearGradient>

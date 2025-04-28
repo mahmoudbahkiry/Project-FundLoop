@@ -43,7 +43,7 @@ export interface Order {
   quantity: number;
   status: "filled" | "pending" | "cancelled";
   time: string;
-  executionPrice?: number;
+  executionPrice?: number | null;
 }
 
 export type AccountMode = "Evaluation" | "Funded";
@@ -66,6 +66,7 @@ interface TradingContextType {
   starredStocks: StarredStock[];
   addPosition: (position: Omit<Position, "id">) => Promise<void>;
   addOrder: (order: Omit<Order, "id">) => Promise<void>;
+  cancelOrder: (id: string) => Promise<void>;
   closePosition: (id: string) => Promise<void>;
   updatePositionCurrentPrice: (id: string, newPrice: number) => Promise<void>;
   starStock: (stock: { symbol: string; name: string }) => Promise<void>;
@@ -272,6 +273,9 @@ const initialStockData: Stock[] = [
 ];
 
 export function TradingProvider({ children }: TradingProviderProps) {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+
   // Trading data for Evaluation mode
   const [evaluationPositions, setEvaluationPositions] = useState<Position[]>(
     []
@@ -296,9 +300,6 @@ export function TradingProvider({ children }: TradingProviderProps) {
 
   // Active mode state
   const [accountMode, setAccountMode] = useState<AccountMode>("Evaluation");
-
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
 
   // Live stock price simulation
   useEffect(() => {
@@ -711,7 +712,21 @@ export function TradingProvider({ children }: TradingProviderProps) {
         .split("T")[0]
         .replace(/-/g, "")
         .substring(2)}-${orders.length + 1}`;
-      const newOrder = { ...order, id: orderId };
+
+      // Create a clean order object without undefined values for Firebase
+      // This ensures optional fields like executionPrice won't cause Firebase errors
+      const cleanOrderData = { ...order };
+
+      // Remove executionPrice if it's undefined for pending limit orders
+      if (
+        cleanOrderData.orderType === "limit" &&
+        cleanOrderData.status === "pending"
+      ) {
+        // For pending limit orders, executionPrice should be null rather than undefined
+        cleanOrderData.executionPrice = null;
+      }
+
+      const newOrder = { ...cleanOrderData, id: orderId };
 
       // Update local state based on account mode
       if (accountMode === "Evaluation") {
@@ -962,6 +977,52 @@ export function TradingProvider({ children }: TradingProviderProps) {
     return currentStocks.some((stock) => stock.symbol === symbol);
   };
 
+  const cancelOrder = async (id: string) => {
+    try {
+      setLoading(true);
+
+      // Find the order to cancel
+      const orderToCancel = orders.find((order) => order.id === id);
+
+      if (!orderToCancel) {
+        console.error(`Order with ID ${id} not found`);
+        setLoading(false);
+        return;
+      }
+
+      // Order can only be cancelled if it's in pending status
+      if (orderToCancel.status !== "pending") {
+        console.error(`Cannot cancel order that is not pending`);
+        setLoading(false);
+        return;
+      }
+
+      // Update order status to cancelled
+      const updatedOrders = orders.map((order) =>
+        order.id === id ? { ...order, status: "cancelled" as const } : order
+      );
+
+      // Save to storage
+      await saveOrdersToStorage(updatedOrders, accountMode);
+
+      // Update state based on current account mode
+      if (accountMode === "Evaluation") {
+        setEvaluationOrders(updatedOrders);
+      } else {
+        setFundedOrders(updatedOrders);
+      }
+
+      // If we ever add database support, we'd update the database here
+      console.log(`Order ${id} cancelled successfully`);
+
+      setLoading(false);
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      setLoading(false);
+      throw error;
+    }
+  };
+
   return (
     <TradingContext.Provider
       value={{
@@ -970,6 +1031,7 @@ export function TradingProvider({ children }: TradingProviderProps) {
         starredStocks,
         addPosition,
         addOrder,
+        cancelOrder,
         closePosition,
         updatePositionCurrentPrice,
         starStock,

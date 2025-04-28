@@ -1,6 +1,6 @@
 # FundLoop
 
-FundLoop is a comprehensive mobile application built with React Native and Expo, designed for investment fund management and trading analytics.
+FundLoop is Egypt’s first proprietary trading platform, built to empower and unlock opportunities for skilled traders. It provides users with access to evaluation programs and funded accounts, allowing them to showcase their trading abilities and manage real capital under a structured risk management framework. Developed using React Native for a seamless cross-platform mobile experience and leveraging Firebase for secure authentication, real-time data handling, and scalable backend services, FundLoop is designed with a focus on performance, simplicity, and user empowerment, redefining how ambitious traders in Egypt connect with funding opportunities.
 
 ## 🌟 Current Features
 

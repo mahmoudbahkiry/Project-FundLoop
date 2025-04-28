@@ -10,6 +10,7 @@ import {
   Modal,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -47,7 +48,7 @@ const getRandomPriceChange = (currentPrice: number): number => {
 };
 
 // Types
-interface Alert {
+interface AlertItem {
   id: string;
   type: "drawdown" | "position" | "rule";
   message: string;
@@ -65,6 +66,7 @@ export default function TradingScreen() {
     loading: tradingDataLoading,
     starredStocks,
     liveStocks, // Use centralized live stock data
+    cancelOrder,
   } = useTradingContext();
 
   // State
@@ -79,8 +81,12 @@ export default function TradingScreen() {
   const [sellConfirmVisible, setSellConfirmVisible] = useState(false);
   const [positionToSell, setPositionToSell] = useState<Position | null>(null);
 
+  // State for cancel confirmation modal
+  const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
+
   // Mock alerts
-  const alerts: Alert[] = [
+  const alerts: AlertItem[] = [
     {
       id: "1",
       type: "drawdown",
@@ -421,6 +427,23 @@ export default function TradingScreen() {
     });
   };
 
+  // Handle cancelling a pending limit order
+  const handleCancelOrder = (orderId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setOrderToCancel(orderId);
+    setCancelConfirmVisible(true);
+  };
+
+  // Execute the cancellation
+  const executeOrderCancellation = () => {
+    if (orderToCancel) {
+      cancelOrder(orderToCancel).catch((error) => {
+        console.error("Failed to cancel order:", error);
+      });
+      setCancelConfirmVisible(false);
+    }
+  };
+
   // Render order item
   const renderOrderItem = ({ item }: { item: Order }) => {
     const formattedTime = formatOrderTime(item.time);
@@ -433,6 +456,9 @@ export default function TradingScreen() {
 
     const orderTypeColor =
       item.type === "buy" ? Colors[theme].success : "#EF4444";
+
+    // Check if this is a pending limit order that can be cancelled
+    const canCancel = item.status === "pending" && item.orderType === "limit";
 
     return (
       <ThemedView
@@ -568,12 +594,28 @@ export default function TradingScreen() {
             </ThemedText>
           </View>
         </View>
+
+        {/* Cancel button for pending limit orders */}
+        {canCancel && (
+          <TouchableOpacity
+            style={styles.cancelOrderButton}
+            onPress={() => handleCancelOrder(item.id)}
+          >
+            <Ionicons
+              name="close-circle"
+              size={16}
+              color="#fff"
+              style={{ marginRight: 6 }}
+            />
+            <ThemedText style={styles.cancelOrderText}>Cancel Order</ThemedText>
+          </TouchableOpacity>
+        )}
       </ThemedView>
     );
   };
 
   // Render alert item
-  const renderAlertItem = ({ item }: { item: Alert }) => (
+  const renderAlertItem = ({ item }: { item: AlertItem }) => (
     <ThemedView
       variant="card"
       style={[
@@ -1058,6 +1100,67 @@ export default function TradingScreen() {
           </ThemedView>
         </View>
       </Modal>
+
+      {/* Cancel Order Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={cancelConfirmVisible}
+        onRequestClose={() => setCancelConfirmVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <ThemedView style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle" style={styles.modalTitle}>
+                Cancel Order
+              </ThemedText>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setCancelConfirmVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={Colors[theme].icon} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.cancelModalContent}>
+              <Ionicons
+                name="warning-outline"
+                size={48}
+                color="#EAB308"
+                style={styles.warningIcon}
+              />
+
+              <ThemedText style={styles.confirmCancelText}>
+                Are you sure you want to cancel this pending order?
+              </ThemedText>
+
+              <ThemedText type="caption" style={styles.confirmSubtext}>
+                This action cannot be undone. The order will be marked as
+                cancelled.
+              </ThemedText>
+            </View>
+
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setCancelConfirmVisible(false)}
+              >
+                <ThemedText style={styles.cancelButtonText}>
+                  Keep Order
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, { backgroundColor: "#EF4444" }]}
+                onPress={executeOrderCancellation}
+              >
+                <ThemedText style={styles.confirmButtonText}>
+                  Cancel Order
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </ThemedView>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -1502,7 +1605,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingTop: 20,
     paddingBottom: 24,
-    maxHeight: "80%",
   },
   modalHeader: {
     flexDirection: "row",
@@ -1607,34 +1709,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 24,
     paddingHorizontal: 24,
     gap: 16,
   },
   cancelButton: {
     flex: 1,
     paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     borderRadius: 10,
     backgroundColor: "#F1F1F1",
     alignItems: "center",
-    maxWidth: 140,
     borderWidth: 1,
     borderColor: "rgba(0, 0, 0, 0.08)",
   },
   cancelButtonText: {
     color: "#555555",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
   },
   confirmButton: {
     flex: 1,
     paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: "#EF4444",
     alignItems: "center",
-    maxWidth: 140,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1643,7 +1742,45 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+
+  // New styles for cancel order button
+  cancelOrderButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#EF4444",
+    marginTop: 8,
+  },
+  cancelOrderText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // Add these new styles for the cancel confirmation modal
+  warningIcon: {
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  cancelModalContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  confirmCancelText: {
+    marginTop: 10,
     fontSize: 16,
     fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  confirmSubtext: {
+    marginTop: 8,
+    textAlign: "center",
+    opacity: 0.7,
   },
 });
