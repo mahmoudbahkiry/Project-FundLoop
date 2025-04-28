@@ -2,14 +2,58 @@
 
 FundLoop is a comprehensive mobile application built with React Native and Expo, designed for investment fund management and trading analytics.
 
-## 🌟 Features
+## 🌟 Current Features
 
-- **Authentication**: Secure login and signup functionality
-- **Trading Dashboard**: Real-time trading interface with advanced charts
-- **Performance Analytics**: Detailed analytics and visualization of investment performance
-- **Account Management**: User profile and account settings
-- **Trading Rules**: Customizable trading rules and parameters
-- **Evaluation Tools**: Tools for evaluating investment strategies
+- **Authentication & Onboarding**
+
+  - Secure login and signup functionality
+  - User personal and financial information collection
+  - Welcome onboarding experience
+
+- **Dashboard & Home**
+
+  - Overview dashboard with key metrics and performance indicators
+  - Real-time portfolio status and summary
+
+- **Trading Platform**
+
+  - Real-time trading interface with advanced charts
+  - Buy and sell stock functionality
+  - Stock details and analytics
+  - Starred/Watchlist stocks management
+  - Live chat for market discussions
+
+- **Performance & Analytics**
+
+  - Detailed trading performance analytics
+  - Visual representations of investment performance
+  - Progress tracking and evaluation
+  - Custom charts and data visualization
+
+- **Rules & Evaluation**
+
+  - Customizable trading rules parameters
+  - Trading evaluation tools
+  - Rule compliance monitoring
+
+- **Account Management**
+
+  - User profile management
+  - Account settings and preferences
+  - Financial account information
+
+- **Withdrawal Options**
+
+  - Bank transfer withdrawals
+  - Cryptocurrency withdrawals
+  - Instapay withdrawal method
+
+- **Support & Information**
+  - Documentation and guides
+  - FAQ section
+  - Contact support functionality
+  - Terms of service and privacy policy
+  - Funded features information
 
 ## 🚀 Tech Stack
 
@@ -71,8 +115,9 @@ FundLoop is a comprehensive mobile application built with React Native and Expo,
 ## 📂 Project Structure
 
 - `/app` - Main application code using Expo Router file-based routing
-  - `/(auth)` - Authentication screens (login, signup, welcome)
-  - `/(tabs)` - Main app tabs and functionality
+  - `/(auth)` - Authentication screens (login, signup, welcome, personal/financial information)
+  - `/(tabs)` - Main app tabs (home, trading, analytics, progress, settings, etc.)
+  - `/(withdraw)` - Withdrawal method screens (bank, crypto, instapay)
 - `/components` - Reusable UI components
 - `/contexts` - React contexts for state management
 - `/hooks` - Custom React hooks
