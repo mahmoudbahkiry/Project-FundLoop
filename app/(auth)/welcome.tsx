@@ -52,7 +52,7 @@ export default function WelcomeScreen() {
       steps: [
         "We provide the trading capital",
         "You apply your trading skills",
-        "We share the profits 80% in favor of the trader",
+        "We share the profits with up to 80% payout to traders",
         "Scale up as you succeed",
       ],
     },
@@ -64,7 +64,7 @@ export default function WelcomeScreen() {
         {
           title: "Access to Capital",
           description:
-            "Trade with accounts up to $200,000 without risking your own money",
+            "Trade with accounts up to 3,000,000 EGP without risking your own money",
         },
         {
           title: "Scaling Opportunities",
@@ -78,7 +78,8 @@ export default function WelcomeScreen() {
         },
         {
           title: "Community Support",
-          description: "Join a network of traders and learn from the best",
+          description:
+            "Join a network of Egyptian traders and learn from the best",
         },
       ],
     },
@@ -90,17 +91,17 @@ export default function WelcomeScreen() {
         {
           title: "Phase 1",
           description:
-            "Demonstrate basic trading competence with relaxed targets",
+            "Demonstrate basic trading competence with achievable profit targets",
         },
         {
           title: "Phase 2",
           description:
-            "Show consistency and risk management over a longer period",
+            "Show consistency and risk management over a longer evaluation period",
         },
         {
           title: "Funded Account",
           description:
-            "Trade a live funded account with profit sharing up to 90%",
+            "Trade a live funded account with profit sharing up to 80% in your favor",
         },
       ],
       showButton: true,

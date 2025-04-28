@@ -69,14 +69,6 @@ interface EducationalResource {
   url: string;
 }
 
-interface NewsItem {
-  id: string;
-  title: string;
-  summary: string;
-  date: string;
-  source: string;
-}
-
 const formatCurrency = (value: number): string => {
   return value.toLocaleString("en-US", {
     style: "currency",
@@ -189,34 +181,6 @@ export default function DashboardScreen() {
     },
   ];
 
-  // Mock news
-  const news: NewsItem[] = [
-    {
-      id: "1",
-      title: "EGX30 Rises 2% on Strong Banking Sector Performance",
-      summary:
-        "The Egyptian stock market index EGX30 rose by 2% today, driven by strong performance in the banking sector.",
-      date: "Today, 4:30 PM",
-      source: "Egypt Business Today",
-    },
-    {
-      id: "2",
-      title: "Central Bank of Egypt Maintains Interest Rates",
-      summary:
-        "The Central Bank of Egypt has decided to maintain interest rates unchanged at its latest monetary policy meeting.",
-      date: "Yesterday",
-      source: "Cairo Financial Review",
-    },
-    {
-      id: "3",
-      title: "New IPO Announced for Tech Company",
-      summary:
-        "A leading Egyptian tech company has announced plans for an initial public offering on the Egyptian Exchange.",
-      date: "2 days ago",
-      source: "Egypt Tech News",
-    },
-  ];
-
   const renderNotification = ({ item }: { item: Notification }) => (
     <TouchableOpacity
       style={[
@@ -312,37 +276,6 @@ export default function DashboardScreen() {
       </TouchableOpacity>
     );
   };
-
-  const renderNewsItem = (item: NewsItem) => (
-    <ThemedView variant="innerCard" style={styles.newsItemCard}>
-      <View style={styles.newsItemHeader}>
-        <ThemedText style={styles.newsTitle}>{item.title}</ThemedText>
-        <View style={styles.newsSourceBadge}>
-          <ThemedText style={styles.newsSourceText}>{item.source}</ThemedText>
-        </View>
-      </View>
-      <ThemedText style={styles.newsSummary}>{item.summary}</ThemedText>
-      <View style={styles.newsFooter}>
-        <View style={styles.newsDateContainer}>
-          <Ionicons
-            name="time-outline"
-            size={14}
-            color={Colors[theme].icon}
-            style={{ marginRight: 4 }}
-          />
-          <ThemedText style={styles.newsDate}>{item.date}</ThemedText>
-        </View>
-        <TouchableOpacity style={styles.readMoreButton}>
-          <ThemedText style={styles.readMoreText}>Read More</ThemedText>
-          <Ionicons
-            name="chevron-forward"
-            size={14}
-            color={Colors[theme].primary}
-          />
-        </TouchableOpacity>
-      </View>
-    </ThemedView>
-  );
 
   const handleAccountModeSelect = (mode: "Evaluation" | "Funded") => {
     if (mode === "Funded") {
@@ -515,98 +448,6 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Trading Rules Compliance */}
-        <ThemedView variant="elevated" style={styles.complianceCard}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Trading Rules Compliance
-          </ThemedText>
-          <View style={styles.rulesList}>
-            <View style={styles.ruleItem}>
-              <View
-                style={[
-                  styles.ruleIcon,
-                  {
-                    backgroundColor: metrics.complianceStatus.dailyLossLimit
-                      ? `${Colors[theme].success}15`
-                      : "#EF444415",
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    metrics.complianceStatus.dailyLossLimit
-                      ? "checkmark-circle"
-                      : "alert-circle"
-                  }
-                  size={20}
-                  color={
-                    metrics.complianceStatus.dailyLossLimit
-                      ? Colors[theme].success
-                      : "#EF4444"
-                  }
-                />
-              </View>
-              <ThemedText style={styles.ruleText}>Daily Loss Limit</ThemedText>
-            </View>
-
-            <View style={styles.ruleItem}>
-              <View
-                style={[
-                  styles.ruleIcon,
-                  {
-                    backgroundColor: metrics.complianceStatus.maxPositionSize
-                      ? `${Colors[theme].success}15`
-                      : "#EF444415",
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    metrics.complianceStatus.maxPositionSize
-                      ? "checkmark-circle"
-                      : "alert-circle"
-                  }
-                  size={20}
-                  color={
-                    metrics.complianceStatus.maxPositionSize
-                      ? Colors[theme].success
-                      : "#EF4444"
-                  }
-                />
-              </View>
-              <ThemedText style={styles.ruleText}>Position Size</ThemedText>
-            </View>
-
-            <View style={styles.ruleItem}>
-              <View
-                style={[
-                  styles.ruleIcon,
-                  {
-                    backgroundColor: metrics.complianceStatus.tradingHours
-                      ? `${Colors[theme].success}15`
-                      : "#EF444415",
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    metrics.complianceStatus.tradingHours
-                      ? "checkmark-circle"
-                      : "alert-circle"
-                  }
-                  size={20}
-                  color={
-                    metrics.complianceStatus.tradingHours
-                      ? Colors[theme].success
-                      : "#EF4444"
-                  }
-                />
-              </View>
-              <ThemedText style={styles.ruleText}>Trading Hours</ThemedText>
-            </View>
-          </View>
-        </ThemedView>
-
         {/* Educational Resources */}
         <ThemedView variant="elevated" style={styles.resourcesCard}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -615,18 +456,6 @@ export default function DashboardScreen() {
           {educationalResources.map((resource) => (
             <React.Fragment key={resource.id}>
               {renderEducationalResource(resource)}
-            </React.Fragment>
-          ))}
-        </ThemedView>
-
-        {/* Market News */}
-        <ThemedView variant="elevated" style={styles.newsCard}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Market Updates
-          </ThemedText>
-          {news.map((item) => (
-            <React.Fragment key={item.id}>
-              {renderNewsItem(item)}
             </React.Fragment>
           ))}
         </ThemedView>
@@ -1143,72 +972,6 @@ const styles = StyleSheet.create({
   resourceDescription: {
     fontSize: 12,
     opacity: 0.7,
-  },
-  newsCard: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  newsItemCard: {
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
-  },
-  newsItemHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 8,
-  },
-  newsTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    flex: 1,
-    marginRight: 12,
-  },
-  newsSourceBadge: {
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  newsSourceText: {
-    fontSize: 12,
-    opacity: 0.8,
-  },
-  newsSummary: {
-    fontSize: 13,
-    opacity: 0.7,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  newsFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  newsDateContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  newsDate: {
-    fontSize: 12,
-    opacity: 0.7,
-  },
-  readMoreButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.03)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  readMoreText: {
-    fontSize: 12,
-    color: Colors.light.primary,
-    marginRight: 4,
   },
   modalOverlay: {
     flex: 1,
