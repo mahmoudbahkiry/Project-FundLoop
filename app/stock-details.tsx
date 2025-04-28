@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LineChart, CandlestickChart } from "react-native-wagmi-charts";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { useTradingContext } from "@/contexts/TradingContext";
+import { useTradingContext, Stock } from "@/contexts/TradingContext";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -107,7 +107,7 @@ export default function StockDetailsScreen() {
     changePercent?: string;
     name?: string;
   }>();
-  const { starStock, unstarStock, isStarred, starredStocks } =
+  const { starStock, unstarStock, isStarred, starredStocks, liveStocks } =
     useTradingContext();
   const symbol = params.symbol || "COMI";
 
@@ -145,253 +145,195 @@ export default function StockDetailsScreen() {
     JUFO: "Juhayna Food Industries is Egypt's leading manufacturer of dairy, yogurt, and juice products. Founded in 1983, it has grown to become one of the most recognized food brands in Egypt and the wider Middle East region.",
   };
 
-  // Load stock data when symbol changes
+  // Simplified initialization function that runs only once
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    // Mock data generation based on symbol
-    const getCompanyInfo = () => {
-      // Default values
-      let companyName = params.name || "";
-      let lastPrice = Number(params.price) || 0;
-      let change = Number(params.change) || 0;
-      let changePercent = Number(params.changePercent) || 0;
-
-      // If we don't have these values from params, use default data based on symbol
-      const symbolToInfo: Record<
-        string,
-        { name: string; price: number; change: number; changePercent: number }
-      > = {
-        COMI: {
-          name: "Commercial International Bank",
-          price: 52.75,
-          change: 0.75,
-          changePercent: 1.44,
-        },
-        HRHO: {
-          name: "Hermes Holding",
-          price: 18.3,
-          change: -0.2,
-          changePercent: -1.08,
-        },
-        TMGH: {
-          name: "Talaat Moustafa Group",
-          price: 9.45,
-          change: 0.15,
-          changePercent: 1.61,
-        },
-        SWDY: {
-          name: "Elsewedy Electric",
-          price: 12.8,
-          change: -0.1,
-          changePercent: -0.78,
-        },
-        EAST: {
-          name: "Eastern Company",
-          price: 15.2,
-          change: 0.3,
-          changePercent: 2.01,
-        },
-        EFIH: {
-          name: "EFG Hermes Holding",
-          price: 21.35,
-          change: 0.45,
-          changePercent: 2.15,
-        },
-        ETEL: {
-          name: "Telecom Egypt",
-          price: 17.65,
-          change: -0.25,
-          changePercent: -1.4,
-        },
-        AMOC: {
-          name: "Alexandria Mineral Oils",
-          price: 8.9,
-          change: 0.2,
-          changePercent: 2.3,
-        },
-        SKPC: {
-          name: "Sidi Kerir Petrochemicals",
-          price: 11.75,
-          change: -0.15,
-          changePercent: -1.26,
-        },
-        ESRS: {
-          name: "Ezz Steel",
-          price: 19.4,
-          change: 0.35,
-          changePercent: 1.84,
-        },
-        ORWE: {
-          name: "Oriental Weavers",
-          price: 10.25,
-          change: 0.1,
-          changePercent: 0.99,
-        },
-        MNHD: {
-          name: "Madinet Nasr Housing",
-          price: 7.85,
-          change: -0.05,
-          changePercent: -0.63,
-        },
-        PHDC: {
-          name: "Palm Hills Development",
-          price: 6.4,
-          change: 0.15,
-          changePercent: 2.4,
-        },
-        HELI: {
-          name: "Heliopolis Housing",
-          price: 8.15,
-          change: -0.1,
-          changePercent: -1.21,
-        },
-        JUFO: {
-          name: "Juhayna Food Industries",
-          price: 13.6,
-          change: 0.25,
-          changePercent: 1.87,
-        },
-      };
-
-      // If we don't have data from params, use the default
-      if (!companyName || !lastPrice) {
-        const defaultInfo = symbolToInfo[symbol] || {
-          name: "Unknown Stock",
-          price: 50.0,
-          change: 0,
-          changePercent: 0,
+    const initializeStockData = () => {
+      try {
+        // Get initial values from params or live data
+        let stockInfo = {
+          symbol: symbol,
+          name: params.name || "",
+          lastPrice: Number(params.price) || 0,
+          change: Number(params.change) || 0,
+          changePercent: Number(params.changePercent) || 0,
         };
-        companyName = defaultInfo.name;
-        lastPrice = defaultInfo.price;
-        change = defaultInfo.change;
-        changePercent = defaultInfo.changePercent;
-      }
 
-      return { companyName, lastPrice, change, changePercent };
-    };
+        // Try to find the stock in live stocks first
+        const liveStock = liveStocks.find((s) => s.symbol === symbol);
+        if (liveStock) {
+          stockInfo = {
+            symbol: symbol,
+            name: liveStock.name,
+            lastPrice: liveStock.lastPrice,
+            change: liveStock.change,
+            changePercent: liveStock.changePercent,
+          };
+        }
+        // If we don't have live data or params, use default
+        else if (!stockInfo.name || !stockInfo.lastPrice) {
+          // Default values based on symbol
+          const symbolToInfo = {
+            COMI: {
+              name: "Commercial International Bank",
+              price: 52.75,
+              change: 0.75,
+              changePercent: 1.44,
+            },
+            HRHO: {
+              name: "Hermes Holding",
+              price: 18.3,
+              change: -0.2,
+              changePercent: -1.08,
+            },
+            TMGH: {
+              name: "Talaat Moustafa Group",
+              price: 9.45,
+              change: 0.15,
+              changePercent: 1.61,
+            },
+            SWDY: {
+              name: "Elsewedy Electric",
+              price: 12.8,
+              change: -0.1,
+              changePercent: -0.78,
+            },
+            EAST: {
+              name: "Eastern Company",
+              price: 15.2,
+              change: 0.3,
+              changePercent: 2.01,
+            },
+            // Add other symbols as needed
+          };
 
-    const info = getCompanyInfo();
+          const defaultInfo = symbolToInfo[
+            symbol as keyof typeof symbolToInfo
+          ] || {
+            name: "Unknown Stock",
+            price: 50.0,
+            change: 0,
+            changePercent: 0,
+          };
 
-    const mockStockData: StockData = {
-      symbol: symbol,
-      name: info.companyName,
-      lastPrice: info.lastPrice,
-      change: info.change,
-      changePercent: info.changePercent,
-      volume: 1245000 + symbol.charCodeAt(0) * 10000, // Generate different volume based on symbol
-      open: info.lastPrice * 0.99, // Slightly lower than last price
-      previousClose: info.lastPrice - info.change,
-      dayHigh: info.lastPrice * 1.02, // 2% higher than last price
-      dayLow: info.lastPrice * 0.98, // 2% lower than last price
-      yearHigh: info.lastPrice * 1.3, // 30% higher for year high
-      yearLow: info.lastPrice * 0.7, // 30% lower for year low
-      marketCap: info.lastPrice * 1000000000 * (1 + symbol.length / 10), // Different market cap based on symbol
-      peRatio: 8.5 + (symbol.charCodeAt(0) % 10), // Different PE ratio based on symbol
-      dividendYield: (3.2 + (symbol.charCodeAt(1) % 5)) / 2, // Different dividend yield based on symbol
-      marketStatus: "open",
-      bid: info.lastPrice - 0.05,
-      ask: info.lastPrice + 0.05,
-    };
-
-    // Generate mock chart data based on timeframe and symbol
-    const generateChartData = (tf: "1D" | "1W" | "1M" | "3M" | "1Y") => {
-      const now = new Date();
-      const data: ChartDataPoint[] = [];
-      let points = 0;
-      let startDate = new Date();
-
-      switch (tf) {
-        case "1D":
-          points = 24; // Hourly for a day
-          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          break;
-        case "1W":
-          points = 7; // Daily for a week
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "1M":
-          points = 30; // Daily for a month
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          break;
-        case "3M":
-          points = 12; // Weekly for 3 months
-          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-          break;
-        case "1Y":
-          points = 12; // Monthly for a year
-          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-          break;
-      }
-
-      // Use symbol to create a unique but deterministic chart pattern for each stock
-      // This ensures charts are fixed for each stock but different between stocks
-      const symbolSum = symbol
-        .split("")
-        .reduce((sum, char) => sum + char.charCodeAt(0), 0);
-      const volatilityFactor = (symbolSum % 10) / 20; // Reduced volatility for smoother charts
-      const trendFactor = ((symbolSum % 20) - 10) / 100;
-      const priceBase = mockStockData.lastPrice - mockStockData.change;
-
-      // Generate deterministic price points based on the symbol and timeframe
-      let lastValue = priceBase;
-
-      for (let i = 0; i <= points; i++) {
-        const pointDate = new Date(
-          startDate.getTime() +
-            (i * (now.getTime() - startDate.getTime())) / points
-        );
-
-        // Create a deterministic pattern based on symbol and position
-        // Using a simple hash function instead of random
-        const hashValue = ((symbolSum * (i + 1) * (tf.length + 1)) % 100) / 100;
-        const deterministicChange =
-          (hashValue * 2 - 1) * volatilityFactor * priceBase;
-        const trend = (i / points) * trendFactor * mockStockData.lastPrice;
-
-        // Ensure the last point matches the current price
-        let pointValue;
-        if (i === points) {
-          pointValue = mockStockData.lastPrice;
-        } else {
-          // Generate value using deterministic pattern
-          pointValue = lastValue + deterministicChange + trend / points;
-          lastValue = pointValue;
+          stockInfo = {
+            symbol: symbol,
+            name: defaultInfo.name,
+            lastPrice: defaultInfo.price,
+            change: defaultInfo.change,
+            changePercent: defaultInfo.changePercent,
+          };
         }
 
-        // For candlestick data - still deterministic
-        const openFactor = ((symbolSum + i) % 10) / 1000;
-        const open = pointValue * (1 - openFactor * volatilityFactor);
-        const close = i === points ? mockStockData.lastPrice : pointValue;
-        const highFactor = ((symbolSum + i * 2) % 10) / 1000;
-        const high =
-          Math.max(open, close) * (1 + highFactor * volatilityFactor);
-        const lowFactor = ((symbolSum + i * 3) % 10) / 1000;
-        const low = Math.min(open, close) * (1 - lowFactor * volatilityFactor);
+        // Create complete stock data object
+        const price = stockInfo.lastPrice;
+        const fullStockData: StockData = {
+          symbol: symbol,
+          name: stockInfo.name,
+          lastPrice: price,
+          change: stockInfo.change,
+          changePercent: stockInfo.changePercent,
+          volume: 1245000 + symbol.charCodeAt(0) * 10000,
+          open: price * 0.99,
+          previousClose: price - stockInfo.change,
+          dayHigh: price * 1.02,
+          dayLow: price * 0.98,
+          yearHigh: price * 1.3,
+          yearLow: price * 0.7,
+          marketCap: price * 1000000000 * (1 + symbol.length / 10),
+          peRatio: 8.5 + (symbol.charCodeAt(0) % 10),
+          dividendYield: (3.2 + (symbol.charCodeAt(1) % 5)) / 2,
+          marketStatus: "open",
+          bid: price - 0.05,
+          ask: price + 0.05,
+        };
 
-        data.push({
-          timestamp: pointDate.getTime(),
-          value: pointValue,
-          open,
-          high,
-          low,
-          close,
-        });
-      }
+        // Generate chart data for the current symbol
+        const generateChartData = (tf: "1D" | "1W" | "1M" | "3M" | "1Y") => {
+          const now = new Date();
+          const data: ChartDataPoint[] = [];
+          let points = 0;
+          let startDate = new Date();
 
-      return data;
-    };
+          switch (tf) {
+            case "1D":
+              points = 24;
+              startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+              break;
+            case "1W":
+              points = 7;
+              startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+              break;
+            case "1M":
+              points = 30;
+              startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+              break;
+            case "3M":
+              points = 12;
+              startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+              break;
+            case "1Y":
+              points = 12;
+              startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+              break;
+          }
 
-    // Set mock data after a small delay to simulate loading
-    const timer = setTimeout(() => {
-      setStockData(mockStockData);
+          // Deterministic values based on symbol
+          const symbolSum = symbol
+            .split("")
+            .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+          const volatilityFactor = (symbolSum % 10) / 20;
+          const trendFactor = ((symbolSum % 20) - 10) / 100;
+          const priceBase = price - stockInfo.change;
 
-      // Check if we already have cached data for this symbol
-      if (!chartDataCache[symbol]) {
-        // Generate data for all timeframes at once and cache it
+          let lastValue = priceBase;
+          for (let i = 0; i <= points; i++) {
+            const pointDate = new Date(
+              startDate.getTime() +
+                (i * (now.getTime() - startDate.getTime())) / points
+            );
+
+            // Deterministic pattern
+            const hashValue =
+              ((symbolSum * (i + 1) * (tf.length + 1)) % 100) / 100;
+            const deterministicChange =
+              (hashValue * 2 - 1) * volatilityFactor * priceBase;
+            const trend = (i / points) * trendFactor * price;
+
+            let pointValue;
+            if (i === points) {
+              pointValue = price;
+            } else {
+              pointValue = lastValue + deterministicChange + trend / points;
+              lastValue = pointValue;
+            }
+
+            // Candlestick data
+            const openFactor = ((symbolSum + i) % 10) / 1000;
+            const open = pointValue * (1 - openFactor * volatilityFactor);
+            const close = i === points ? price : pointValue;
+            const highFactor = ((symbolSum + i * 2) % 10) / 1000;
+            const high =
+              Math.max(open, close) * (1 + highFactor * volatilityFactor);
+            const lowFactor = ((symbolSum + i * 3) % 10) / 1000;
+            const low =
+              Math.min(open, close) * (1 - lowFactor * volatilityFactor);
+
+            data.push({
+              timestamp: pointDate.getTime(),
+              value: pointValue,
+              open,
+              high,
+              low,
+              close,
+            });
+          }
+
+          return data;
+        };
+
+        // Generate and cache chart data for all timeframes
         const cache: Record<string, ChartDataPoint[]> = {};
-        const timeframes: ("1D" | "1W" | "1M" | "3M" | "1Y")[] = [
+        const allTimeframes: ("1D" | "1W" | "1M" | "3M" | "1Y")[] = [
           "1D",
           "1W",
           "1M",
@@ -399,38 +341,78 @@ export default function StockDetailsScreen() {
           "1Y",
         ];
 
-        timeframes.forEach((tf) => {
-          // Generate chart data for each timeframe
+        allTimeframes.forEach((tf) => {
           cache[tf] = generateChartData(tf);
         });
 
-        // Update the cache
-        setChartDataCache((prevCache) => ({
-          ...prevCache,
-          [symbol]: cache,
-        }));
-
-        // Set the current chart data
+        // Update state
+        setStockData(fullStockData);
+        setChartDataCache((prev) => ({ ...prev, [symbol]: cache }));
         setChartData(cache[timeframe]);
-      } else {
-        // Use cached data
-        setChartData(chartDataCache[symbol][timeframe]);
+        setStarred(isStarred(symbol));
+        setLoading(false);
+      } catch (err) {
+        console.error("Error initializing stock data:", err);
+        setError("Failed to load stock data. Please try again.");
+        setLoading(false);
       }
+    };
 
-      setLoading(false);
-    }, 1000);
+    // Introduce a small delay to simulate loading
+    const timer = setTimeout(() => {
+      initializeStockData();
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [symbol]);
+    // Include the dependencies explicitly needed for initialization
+  }, [symbol, params, liveStocks, timeframe, isStarred]);
+
+  // Separate effect for updating prices from live data
+  useEffect(() => {
+    if (!loading && stockData) {
+      const liveStock = liveStocks.find((s) => s.symbol === symbol);
+      if (liveStock) {
+        setStockData((prev) => {
+          if (!prev) return prev;
+
+          // Only update if price changed
+          if (prev.lastPrice === liveStock.lastPrice) return prev;
+
+          return {
+            ...prev,
+            lastPrice: liveStock.lastPrice,
+            change: liveStock.change,
+            changePercent: liveStock.changePercent,
+            bid: liveStock.bid || prev.bid,
+            ask: liveStock.ask || prev.ask,
+            dayHigh: Math.max(prev.dayHigh, liveStock.lastPrice),
+            dayLow: Math.min(prev.dayLow, liveStock.lastPrice),
+          };
+        });
+      }
+    }
+  }, [liveStocks, loading, symbol]);
 
   // Update chart data when timeframe changes
   useEffect(() => {
     if (chartDataCache[symbol] && chartDataCache[symbol][timeframe]) {
-      setChartData(chartDataCache[symbol][timeframe]);
-    }
-  }, [timeframe, symbol, chartDataCache]);
+      const cachedData = [...chartDataCache[symbol][timeframe]];
 
-  // Check if stock is starred when component mounts or when starredStocks changes
+      // Update the last data point with the current live price if available
+      if (stockData && cachedData.length > 0) {
+        const lastIndex = cachedData.length - 1;
+        cachedData[lastIndex] = {
+          ...cachedData[lastIndex],
+          value: stockData.lastPrice,
+          close: stockData.lastPrice,
+        };
+      }
+
+      setChartData(cachedData);
+    }
+  }, [timeframe, chartDataCache, stockData?.lastPrice, symbol]);
+
+  // Check if stock is starred
   useEffect(() => {
     if (symbol) {
       setStarred(isStarred(symbol));

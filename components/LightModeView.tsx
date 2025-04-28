@@ -1,52 +1,58 @@
-import { View, type ViewProps, StyleSheet } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { View, type ViewProps, StyleSheet } from "react-native";
+import { Colors } from "@/constants/Colors";
 
 export type LightModeViewProps = ViewProps & {
-  variant?: 'default' | 'card' | 'elevated' | 'outlined' | 'surface' | 'innerCard';
+  variant?:
+    | "default"
+    | "card"
+    | "elevated"
+    | "outlined"
+    | "surface"
+    | "innerCard";
   rounded?: boolean;
 };
 
 /**
  * A View component that always uses light mode colors regardless of the system theme
  */
-export function LightModeView({ 
-  style, 
-  variant = 'default',
+export function LightModeView({
+  style,
+  variant = "default",
   rounded = false,
-  ...otherProps 
+  ...otherProps
 }: LightModeViewProps) {
   const backgroundColor = Colors.light.background;
   const borderColor = Colors.light.icon;
-  
+
   // Get light mode styles for variants
   const getVariantStyles = () => {
     switch (variant) {
-      case 'card':
+      case "card":
         return {
           ...styles.card,
-          backgroundColor: '#F5F5F5',
-          shadowColor: '#000',
+          backgroundColor: "#F5F5F5",
+          shadowColor: "#000",
         };
-      case 'innerCard':
+      case "innerCard":
         return {
           ...styles.innerCard,
-          backgroundColor: 'rgba(0,0,0,0.03)',
+          backgroundColor: "rgba(0,0,0,0.03)",
         };
-      case 'elevated':
+      case "elevated":
         return {
           ...styles.elevated,
-          backgroundColor: '#FFFFFF',
-          shadowColor: '#000',
+          backgroundColor: "#FFFFFF",
+          shadowColor: "#000",
         };
-      case 'outlined':
+      case "outlined":
         return {
           ...styles.outlined,
-          borderColor: 'rgba(0,0,0,0.15)',
+          borderColor: "rgba(0,0,0,0.15)",
         };
-      case 'surface':
+      case "surface":
         return {
           ...styles.surface,
-          backgroundColor: '#FFFFFF',
+          backgroundColor: "#FFFFFF",
         };
       default:
         return {};
@@ -54,14 +60,14 @@ export function LightModeView({
   };
 
   return (
-    <View 
+    <View
       style={[
         { backgroundColor },
         getVariantStyles(),
         rounded && styles.rounded,
-        style
-      ]} 
-      {...otherProps} 
+        style,
+      ]}
+      {...otherProps}
     />
   );
 }
@@ -79,10 +85,7 @@ const styles = StyleSheet.create({
   elevated: {
     padding: 16,
     borderRadius: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.1)",
   },
   outlined: {
     padding: 16,
@@ -95,5 +98,5 @@ const styles = StyleSheet.create({
   },
   rounded: {
     borderRadius: 12,
-  }
+  },
 });

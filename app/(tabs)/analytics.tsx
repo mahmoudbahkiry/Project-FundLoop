@@ -27,7 +27,11 @@ import {
   calculateTradeMetrics,
   filterOrdersByTimeframe,
 } from "@/firebase/tradeAnalyticsUtils";
-import { Order } from "@/contexts/TradingContext";
+import {
+  Order,
+  useTradingContext,
+  AccountMode,
+} from "@/contexts/TradingContext";
 
 // Types
 interface TradeMetrics {
@@ -85,6 +89,8 @@ interface Violation {
 export default function AnalyticsScreen() {
   const { currentTheme } = useTheme();
   const theme = currentTheme;
+  const { user } = useAuth();
+  const { accountMode, orders: contextOrders } = useTradingContext(); // Get orders from context
 
   // Format currency
   const formatCurrency = (value: number): string => {
@@ -108,7 +114,7 @@ export default function AnalyticsScreen() {
   const [journalEntries, setJournalEntries] = useState<JournalEntryType[]>([]);
   const [isLoadingEntries, setIsLoadingEntries] = useState(false);
 
-  // New state for order data
+  // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [tradeMetrics, setTradeMetrics] = useState<TradeMetrics>({
@@ -125,8 +131,6 @@ export default function AnalyticsScreen() {
   // Add refreshing state
   const [refreshing, setRefreshing] = useState(false);
 
-  const { user } = useAuth();
-
   // State for error handling
   const [journalError, setJournalError] = useState<string | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
@@ -138,57 +142,48 @@ export default function AnalyticsScreen() {
     }
   }, [activeTab, user]);
 
-  // Load orders and calculate metrics when component mounts or timeframe changes
+  // Load orders from context when component mounts, timeframe changes, or accountMode changes
   useEffect(() => {
-    if (user) {
-      loadUserOrders();
+    // The orders from context are already filtered by account mode
+    if (contextOrders) {
+      processOrders(contextOrders);
     }
-  }, [user, timeframe]);
+  }, [timeframe, contextOrders, accountMode]);
+
+  // Process orders to calculate metrics
+  const processOrders = (orderData: Order[]) => {
+    try {
+      // Filter orders by timeframe and calculate metrics
+      const timeframeFilteredOrders = filterOrdersByTimeframe(
+        orderData,
+        timeframe
+      );
+      const metrics = calculateTradeMetrics(timeframeFilteredOrders);
+
+      setOrders(orderData);
+      setTradeMetrics(metrics);
+      setIsLoadingOrders(false);
+    } catch (error) {
+      console.error("Error processing orders:", error);
+      setOrdersError("Failed to process trading data");
+      setIsLoadingOrders(false);
+    }
+  };
 
   // Handle pull-to-refresh
   const onRefresh = async () => {
     setRefreshing(true);
     try {
       if (user) {
-        if (activeTab === "performance") {
-          await loadUserOrders();
-        } else if (activeTab === "journal") {
+        if (activeTab === "journal") {
           await loadJournalEntries();
         }
+        // For performance tab, we use context data which is managed elsewhere
       }
     } catch (error) {
       console.error("Error refreshing data:", error);
     } finally {
       setRefreshing(false);
-    }
-  };
-
-  // Function to load user orders
-  const loadUserOrders = async () => {
-    if (!user) {
-      setOrdersError("You must be logged in to view analytics");
-      return;
-    }
-
-    try {
-      setIsLoadingOrders(true);
-      setOrdersError(null);
-
-      console.log(`Attempting to load orders for user: ${user.uid}`);
-      const userOrders = await getUserOrders(user.uid);
-      console.log(`Successfully loaded ${userOrders.length} orders`);
-
-      setOrders(userOrders);
-
-      // Filter orders by timeframe and calculate metrics
-      const filteredOrders = filterOrdersByTimeframe(userOrders, timeframe);
-      const metrics = calculateTradeMetrics(filteredOrders);
-      setTradeMetrics(metrics);
-    } catch (error) {
-      console.error("Error loading orders:", error);
-      setOrdersError("Failed to load trading data. Please try again later.");
-    } finally {
-      setIsLoadingOrders(false);
     }
   };
 
@@ -872,6 +867,7 @@ export default function AnalyticsScreen() {
                     style={{ marginRight: 4 }}
                   />
                   <ThemedText style={styles.periodText}>
+                    {accountMode} -{" "}
                     {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}
                   </ThemedText>
                 </View>
@@ -975,7 +971,7 @@ export default function AnalyticsScreen() {
                   </ThemedText>
                   <TouchableOpacity
                     style={styles.retryButton}
-                    onPress={loadUserOrders}
+                    onPress={() => processOrders(contextOrders)}
                   >
                     <Ionicons name="refresh" size={16} color="#fff" />
                     <ThemedText style={styles.retryButtonText}>
@@ -1072,7 +1068,7 @@ export default function AnalyticsScreen() {
                                 },
                               ]}
                             >
-                              {timeframe}
+                              {accountMode}
                             </ThemedText>
                           </View>
                         )}

@@ -4,6 +4,8 @@ import React, {
   useState,
   ReactNode,
   useEffect,
+  useRef,
+  useCallback,
 } from "react";
 import { useAuth } from "./AuthContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,6 +21,7 @@ import {
   getUserStarredStocks,
   StarredStock,
   migrateStarredStocks,
+  updatePositionPrice,
 } from "@/firebase/tradingService";
 
 export interface Position {
@@ -45,6 +48,18 @@ export interface Order {
 
 export type AccountMode = "Evaluation" | "Funded";
 
+// Type for stock data
+export interface Stock {
+  symbol: string;
+  name: string;
+  lastPrice: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  bid?: number;
+  ask?: number;
+}
+
 interface TradingContextType {
   positions: Position[];
   orders: Order[];
@@ -52,6 +67,7 @@ interface TradingContextType {
   addPosition: (position: Omit<Position, "id">) => Promise<void>;
   addOrder: (order: Omit<Order, "id">) => Promise<void>;
   closePosition: (id: string) => Promise<void>;
+  updatePositionCurrentPrice: (id: string, newPrice: number) => Promise<void>;
   starStock: (stock: { symbol: string; name: string }) => Promise<void>;
   unstarStock: (stockId: string) => Promise<void>;
   isStarred: (symbol: string) => boolean;
@@ -62,6 +78,9 @@ interface TradingContextType {
   setAccountMode: (mode: AccountMode) => void;
   evaluationBalance: number;
   fundedBalance: number;
+  // New stock price simulation properties
+  liveStocks: Stock[];
+  getStockPrice: (symbol: string) => Stock | null;
 }
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
@@ -88,6 +107,170 @@ const STARRED_STOCKS_KEY = "starred_stocks";
 // Default starting balance
 const DEFAULT_BALANCE = 100000;
 
+// Helper function to generate random price change (between -0.5% and +0.5%)
+const getRandomPriceChange = (currentPrice: number): number => {
+  // Random percentage between -0.5% and +0.5%
+  const randomPercent = (Math.random() - 0.5) * 1;
+  // Calculate actual change amount
+  const changeAmount = currentPrice * (randomPercent / 100);
+  // Return new price with 2 decimal places
+  return Math.round((currentPrice + changeAmount) * 100) / 100;
+};
+
+// Sample stock data
+const initialStockData: Stock[] = [
+  {
+    symbol: "COMI",
+    name: "Commercial International Bank",
+    lastPrice: 52.75,
+    change: 0.75,
+    changePercent: 1.44,
+    volume: 1245000,
+    bid: 52.7,
+    ask: 52.8,
+  },
+  {
+    symbol: "HRHO",
+    name: "Hermes Holding",
+    lastPrice: 18.3,
+    change: -0.2,
+    changePercent: -1.08,
+    volume: 980000,
+    bid: 18.25,
+    ask: 18.35,
+  },
+  {
+    symbol: "TMGH",
+    name: "Talaat Moustafa Group",
+    lastPrice: 9.45,
+    change: 0.15,
+    changePercent: 1.61,
+    volume: 750000,
+    bid: 9.4,
+    ask: 9.5,
+  },
+  {
+    symbol: "SWDY",
+    name: "Elsewedy Electric",
+    lastPrice: 12.8,
+    change: -0.1,
+    changePercent: -0.78,
+    volume: 620000,
+    bid: 12.75,
+    ask: 12.85,
+  },
+  {
+    symbol: "EAST",
+    name: "Eastern Company",
+    lastPrice: 15.2,
+    change: 0.3,
+    changePercent: 2.01,
+    volume: 540000,
+    bid: 15.15,
+    ask: 15.25,
+  },
+  {
+    symbol: "EFIH",
+    name: "EFG Hermes Holding",
+    lastPrice: 21.35,
+    change: 0.45,
+    changePercent: 2.15,
+    volume: 890000,
+    bid: 21.3,
+    ask: 21.4,
+  },
+  {
+    symbol: "ETEL",
+    name: "Telecom Egypt",
+    lastPrice: 17.65,
+    change: -0.25,
+    changePercent: -1.4,
+    volume: 720000,
+    bid: 17.6,
+    ask: 17.7,
+  },
+  {
+    symbol: "AMOC",
+    name: "Alexandria Mineral Oils",
+    lastPrice: 8.9,
+    change: 0.2,
+    changePercent: 2.3,
+    volume: 680000,
+    bid: 8.85,
+    ask: 8.95,
+  },
+  {
+    symbol: "SKPC",
+    name: "Sidi Kerir Petrochemicals",
+    lastPrice: 11.75,
+    change: -0.15,
+    changePercent: -1.26,
+    volume: 510000,
+    bid: 11.7,
+    ask: 11.8,
+  },
+  {
+    symbol: "ESRS",
+    name: "Ezz Steel",
+    lastPrice: 19.4,
+    change: 0.35,
+    changePercent: 1.84,
+    volume: 630000,
+    bid: 19.35,
+    ask: 19.45,
+  },
+  {
+    symbol: "ORWE",
+    name: "Oriental Weavers",
+    lastPrice: 10.25,
+    change: 0.1,
+    changePercent: 0.99,
+    volume: 480000,
+    bid: 10.2,
+    ask: 10.3,
+  },
+  {
+    symbol: "MNHD",
+    name: "Madinet Nasr Housing",
+    lastPrice: 7.85,
+    change: -0.05,
+    changePercent: -0.63,
+    volume: 520000,
+    bid: 7.8,
+    ask: 7.9,
+  },
+  {
+    symbol: "PHDC",
+    name: "Palm Hills Development",
+    lastPrice: 6.4,
+    change: 0.15,
+    changePercent: 2.4,
+    volume: 950000,
+    bid: 6.35,
+    ask: 6.45,
+  },
+  {
+    symbol: "HELI",
+    name: "Heliopolis Housing",
+    lastPrice: 8.15,
+    change: -0.1,
+    changePercent: -1.21,
+    volume: 420000,
+    bid: 8.1,
+    ask: 8.2,
+  },
+  {
+    symbol: "JUFO",
+    name: "Juhayna Food Industries",
+    lastPrice: 13.6,
+    change: 0.25,
+    changePercent: 1.87,
+    volume: 380000,
+    bid: 13.55,
+    ask: 13.65,
+  },
+];
+
 export function TradingProvider({ children }: TradingProviderProps) {
   // Trading data for Evaluation mode
   const [evaluationPositions, setEvaluationPositions] = useState<Position[]>(
@@ -107,11 +290,111 @@ export function TradingProvider({ children }: TradingProviderProps) {
     StarredStock[]
   >([]);
 
+  // Stock price simulation state
+  const [liveStocks, setLiveStocks] = useState<Stock[]>(initialStockData);
+  const priceUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   // Active mode state
   const [accountMode, setAccountMode] = useState<AccountMode>("Evaluation");
 
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+
+  // Live stock price simulation
+  useEffect(() => {
+    console.log("Setting up stock price simulation interval");
+
+    // Clear any existing interval
+    if (priceUpdateIntervalRef.current) {
+      clearInterval(priceUpdateIntervalRef.current);
+    }
+
+    // Create new interval to update prices every second
+    priceUpdateIntervalRef.current = setInterval(() => {
+      // Update the live stock prices
+      setLiveStocks((prevStocks) => {
+        const updatedStocks = prevStocks.map((stock) => {
+          const newPrice = getRandomPriceChange(stock.lastPrice);
+          const change = +(newPrice - stock.lastPrice).toFixed(2);
+          const changePercent = +((change / stock.lastPrice) * 100).toFixed(2);
+
+          return {
+            ...stock,
+            lastPrice: newPrice,
+            change,
+            changePercent,
+            bid: +(newPrice - 0.05).toFixed(2),
+            ask: +(newPrice + 0.05).toFixed(2),
+          };
+        });
+
+        // After updating stocks, also update positions with these new prices
+        if (evaluationPositions.length > 0) {
+          const updatedPositions = evaluationPositions.map((position) => {
+            const matchingStock = updatedStocks.find(
+              (stock) => stock.symbol === position.symbol
+            );
+            if (matchingStock) {
+              return {
+                ...position,
+                currentPrice: matchingStock.lastPrice,
+              };
+            }
+            return position;
+          });
+
+          // Use updatedPositions directly instead of a state update callback
+          setEvaluationPositions(updatedPositions);
+
+          // Save to storage in the background
+          savePositionsToStorage(updatedPositions, "Evaluation").catch((err) =>
+            console.error("Error saving updated evaluation positions:", err)
+          );
+        }
+
+        if (fundedPositions.length > 0) {
+          const updatedPositions = fundedPositions.map((position) => {
+            const matchingStock = updatedStocks.find(
+              (stock) => stock.symbol === position.symbol
+            );
+            if (matchingStock) {
+              return {
+                ...position,
+                currentPrice: matchingStock.lastPrice,
+              };
+            }
+            return position;
+          });
+
+          // Use updatedPositions directly instead of a state update callback
+          setFundedPositions(updatedPositions);
+
+          // Save to storage in the background
+          savePositionsToStorage(updatedPositions, "Funded").catch((err) =>
+            console.error("Error saving updated funded positions:", err)
+          );
+        }
+
+        return updatedStocks;
+      });
+    }, 1000);
+
+    // Cleanup interval on unmount
+    return () => {
+      if (priceUpdateIntervalRef.current) {
+        clearInterval(priceUpdateIntervalRef.current);
+        priceUpdateIntervalRef.current = null;
+      }
+    };
+  }, []); // Empty dependency array to only set up once
+
+  // Function to get stock data by symbol
+  const getStockPrice = useCallback(
+    (symbol: string): Stock | null => {
+      return liveStocks.find((stock) => stock.symbol === symbol) || null;
+    },
+    [liveStocks]
+  );
 
   // Memoized values based on current account mode
   const positions =
@@ -487,7 +770,15 @@ export function TradingProvider({ children }: TradingProviderProps) {
         return;
       }
 
-      // Update local state based on account mode
+      // Get the current price from liveStocks if available
+      const currentStock = liveStocks.find(
+        (stock) => stock.symbol === position.symbol
+      );
+      const currentPrice = currentStock
+        ? currentStock.lastPrice
+        : position.currentPrice;
+
+      // Update local state based on account mode - remove the position
       if (accountMode === "Evaluation") {
         const updatedPositions = evaluationPositions.filter(
           (pos) => pos.id !== id
@@ -511,28 +802,73 @@ export function TradingProvider({ children }: TradingProviderProps) {
         }
       }
 
-      // Add a sell order when closing a position
-      if (position) {
-        const time = new Date().toISOString();
+      // Add a sell order when closing a position - use the current price
+      const time = new Date().toISOString();
 
-        // Add the sold amount to user's balance
-        const saleValue = position.currentPrice * position.quantity;
-        const newBalance = balance + saleValue;
-        await updateBalance(newBalance);
+      // Add the sold amount to user's balance - use current price
+      const saleValue = currentPrice * position.quantity;
+      const newBalance = balance + saleValue;
+      await updateBalance(newBalance);
 
-        await addOrder({
-          symbol: position.symbol,
-          type: "sell",
-          orderType: "market",
-          price: position.currentPrice,
-          quantity: position.quantity,
-          status: "filled",
-          time,
-          executionPrice: position.currentPrice,
-        });
-      }
+      // Create the sell order with current price
+      await addOrder({
+        symbol: position.symbol,
+        type: "sell",
+        orderType: "market",
+        price: currentPrice,
+        quantity: position.quantity,
+        status: "filled",
+        time,
+        executionPrice: currentPrice,
+      });
     } catch (error) {
       console.error("Error closing position:", error);
+      throw error;
+    }
+  };
+
+  // Function to manually update a position's current price
+  const updatePositionCurrentPrice = async (id: string, newPrice: number) => {
+    try {
+      // Find the position to update based on account mode
+      const currentPositions =
+        accountMode === "Evaluation" ? evaluationPositions : fundedPositions;
+      const position = currentPositions.find((pos) => pos.id === id);
+
+      if (!position) {
+        console.warn(`Position with ID ${id} not found`);
+        return;
+      }
+
+      // Update the position in the appropriate state
+      if (accountMode === "Evaluation") {
+        const updatedPositions = evaluationPositions.map((pos) =>
+          pos.id === id ? { ...pos, currentPrice: newPrice } : pos
+        );
+        setEvaluationPositions(updatedPositions);
+        await savePositionsToStorage(updatedPositions, "Evaluation");
+      } else {
+        const updatedPositions = fundedPositions.map((pos) =>
+          pos.id === id ? { ...pos, currentPrice: newPrice } : pos
+        );
+        setFundedPositions(updatedPositions);
+        await savePositionsToStorage(updatedPositions, "Funded");
+      }
+
+      // Update in Firestore if the user is logged in
+      if (user) {
+        try {
+          // Using the imported function from tradingService
+          await updatePositionPrice(user.uid, id, newPrice);
+          console.log(
+            `Position ${id} price updated to ${newPrice} in Firestore`
+          );
+        } catch (error) {
+          console.error("Error updating position price in Firestore:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error updating position price:", error);
       throw error;
     }
   };
@@ -635,6 +971,7 @@ export function TradingProvider({ children }: TradingProviderProps) {
         addPosition,
         addOrder,
         closePosition,
+        updatePositionCurrentPrice,
         starStock,
         unstarStock,
         isStarred,
@@ -645,6 +982,9 @@ export function TradingProvider({ children }: TradingProviderProps) {
         setAccountMode: handleAccountModeChange,
         evaluationBalance,
         fundedBalance,
+        // New stock price simulation properties
+        liveStocks,
+        getStockPrice,
       }}
     >
       {children}

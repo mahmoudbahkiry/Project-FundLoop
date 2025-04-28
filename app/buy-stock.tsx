@@ -32,13 +32,19 @@ export default function BuyStockScreen() {
     name: string;
     price: string;
   }>();
-  const { addOrder, balance, starStock, unstarStock, isStarred } =
-    useTradingContext();
+  const {
+    addOrder,
+    balance,
+    starStock,
+    unstarStock,
+    isStarred,
+    getStockPrice,
+  } = useTradingContext();
 
   // Extract stock information from params
   const symbol = params.symbol || "";
   const stockName = params.name || "";
-  const currentPrice = parseFloat(params.price || "0");
+  const paramPrice = parseFloat(params.price || "0");
 
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [starred, setStarred] = useState(false);
@@ -47,9 +53,25 @@ export default function BuyStockScreen() {
   const [orderType, setOrderType] = useState<OrderType>("cash");
   const [cashAmount, setCashAmount] = useState("");
   const [units, setUnits] = useState("");
-  const [limitPrice, setLimitPrice] = useState(currentPrice.toFixed(2));
+  const [limitPrice, setLimitPrice] = useState(paramPrice.toFixed(2));
   const [estimatedUnits, setEstimatedUnits] = useState(0);
   const [totalValue, setTotalValue] = useState(0);
+  // Track the live price separately
+  const [currentPrice, setCurrentPrice] = useState(paramPrice);
+
+  // Use live stock data from context when available
+  useEffect(() => {
+    // Get the current stock price from the context
+    const stockData = getStockPrice(symbol);
+    if (stockData) {
+      setCurrentPrice(stockData.lastPrice);
+
+      // Update limitPrice only if it hasn't been modified by the user
+      if (paramPrice === parseFloat(limitPrice)) {
+        setLimitPrice(stockData.lastPrice.toFixed(2));
+      }
+    }
+  }, [symbol, getStockPrice, paramPrice]);
 
   // Update calculations when values change
   useEffect(() => {
@@ -112,6 +134,10 @@ export default function BuyStockScreen() {
   const handlePlaceOrder = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    // Get the latest price from context
+    const stockData = getStockPrice(symbol);
+    const latestPrice = stockData ? stockData.lastPrice : currentPrice;
+
     // Validate order
     if (orderType === "cash" && (!cashAmount || parseFloat(cashAmount) <= 0)) {
       Alert.alert("Invalid Amount", "Please enter a valid cash amount");
@@ -135,7 +161,7 @@ export default function BuyStockScreen() {
     if (orderType === "cash") {
       orderValue = parseFloat(cashAmount);
     } else if (orderType === "units") {
-      orderValue = parseFloat(units) * currentPrice;
+      orderValue = parseFloat(units) * latestPrice;
     } else if (orderType === "limit") {
       orderValue = parseFloat(units) * parseFloat(limitPrice);
     }
@@ -158,10 +184,10 @@ export default function BuyStockScreen() {
     if (orderType === "cash") {
       finalOrderType = "market";
       finalQuantity = Math.floor(estimatedUnits); // Ensure whole units only
-      finalPrice = currentPrice;
-      finalExecutionPrice = currentPrice;
+      finalPrice = latestPrice;
+      finalExecutionPrice = latestPrice;
       // Calculate actual cash amount based on rounded units
-      const actualCashAmount = finalQuantity * currentPrice;
+      const actualCashAmount = finalQuantity * latestPrice;
       message = `Buy ${finalQuantity} units of ${symbol} for ${actualCashAmount.toLocaleString(
         "en-US",
         { style: "currency", currency: "EGP" }
@@ -169,10 +195,10 @@ export default function BuyStockScreen() {
     } else if (orderType === "units") {
       finalOrderType = "market";
       finalQuantity = Math.floor(parseFloat(units)); // Ensure whole units only
-      finalPrice = currentPrice;
-      finalExecutionPrice = currentPrice;
+      finalPrice = latestPrice;
+      finalExecutionPrice = latestPrice;
       message = `Buy ${finalQuantity} units of ${symbol} at market price (approximately ${(
-        finalQuantity * currentPrice
+        finalQuantity * latestPrice
       ).toLocaleString("en-US", { style: "currency", currency: "EGP" })})`;
     } else if (orderType === "limit") {
       finalOrderType = "limit";

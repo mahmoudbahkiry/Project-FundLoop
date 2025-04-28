@@ -22,6 +22,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTradingContext } from "@/contexts/TradingContext";
 import { router } from "expo-router";
+import { getDomain } from "@/utils/urlUtils";
 
 interface Metrics {
   accountStatus: "Evaluation" | "Funded";
@@ -244,9 +245,11 @@ export default function DashboardScreen() {
 
   const renderEducationalResource = (item: EducationalResource) => {
     const handleResourcePress = () => {
+      const domain = getDomain(item.url);
+
       Alert.alert(
         "Open Educational Resource",
-        `Would you like to open "${item.title}" in your browser?`,
+        `Would you like to open "${item.title}" from ${domain}?`,
         [
           {
             text: "Cancel",

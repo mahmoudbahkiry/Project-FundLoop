@@ -30,37 +30,12 @@ const formatCurrency = (value: number): string => {
   });
 };
 
-// Interface for stock data
-interface StockPriceData {
-  price: number;
-  change: number;
-  changePercent: number;
-}
-
-// Mock stocks data for price lookup
-const mockStocksData: Record<string, StockPriceData> = {
-  COMI: { price: 52.75, change: 0.75, changePercent: 1.44 },
-  HRHO: { price: 18.3, change: -0.2, changePercent: -1.08 },
-  TMGH: { price: 9.45, change: 0.15, changePercent: 1.61 },
-  SWDY: { price: 12.8, change: -0.1, changePercent: -0.78 },
-  EAST: { price: 15.2, change: 0.3, changePercent: 2.01 },
-  EFIH: { price: 21.35, change: 0.45, changePercent: 2.15 },
-  ETEL: { price: 17.65, change: -0.25, changePercent: -1.4 },
-  AMOC: { price: 8.9, change: 0.2, changePercent: 2.3 },
-  SKPC: { price: 11.75, change: -0.15, changePercent: -1.26 },
-  ESRS: { price: 19.4, change: 0.35, changePercent: 1.84 },
-  ORWE: { price: 10.25, change: 0.1, changePercent: 0.99 },
-  MNHD: { price: 7.85, change: -0.05, changePercent: -0.63 },
-  PHDC: { price: 6.4, change: 0.15, changePercent: 2.4 },
-  HELI: { price: 8.15, change: -0.1, changePercent: -1.21 },
-  JUFO: { price: 13.6, change: 0.25, changePercent: 1.87 },
-};
-
 export default function StarredStocksScreen() {
   const { currentTheme } = useTheme();
   const theme = currentTheme;
   const router = useRouter();
-  const { starredStocks, unstarStock } = useTradingContext();
+  const { starredStocks, unstarStock, getStockPrice, liveStocks } =
+    useTradingContext();
 
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -83,9 +58,20 @@ export default function StarredStocksScreen() {
     }, 1000);
   };
 
-  // Get stock price info from mock data
-  const getStockInfo = (symbol: string): StockPriceData => {
-    return mockStocksData[symbol] || { price: 0, change: 0, changePercent: 0 };
+  // Get stock price info from context
+  const getStockInfo = (symbol: string) => {
+    const stockData = getStockPrice(symbol);
+
+    if (stockData) {
+      return {
+        price: stockData.lastPrice,
+        change: stockData.change,
+        changePercent: stockData.changePercent,
+      };
+    }
+
+    // Fallback to default values if stock not found
+    return { price: 0, change: 0, changePercent: 0 };
   };
 
   // Handle unstar

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -19,7 +19,12 @@ import { Colors } from "@/constants/Colors";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useTradingContext, Position, Order } from "@/contexts/TradingContext";
+import {
+  useTradingContext,
+  Position,
+  Order,
+  Stock,
+} from "@/contexts/TradingContext";
 
 // Format currency in EGP
 const formatCurrency = (value: number): string => {
@@ -31,18 +36,17 @@ const formatCurrency = (value: number): string => {
   });
 };
 
-// Types
-interface Stock {
-  symbol: string;
-  name: string;
-  lastPrice: number;
-  change: number;
-  changePercent: number;
-  volume: number;
-  bid?: number;
-  ask?: number;
-}
+// Helper function to generate random price change (between -0.5% and +0.5%)
+const getRandomPriceChange = (currentPrice: number): number => {
+  // Random percentage between -0.5% and +0.5%
+  const randomPercent = (Math.random() - 0.5) * 1;
+  // Calculate actual change amount
+  const changeAmount = currentPrice * (randomPercent / 100);
+  // Return new price with 2 decimal places
+  return Math.round((currentPrice + changeAmount) * 100) / 100;
+};
 
+// Types
 interface Alert {
   id: string;
   type: "drawdown" | "position" | "rule";
@@ -60,6 +64,7 @@ export default function TradingScreen() {
     closePosition,
     loading: tradingDataLoading,
     starredStocks,
+    liveStocks, // Use centralized live stock data
   } = useTradingContext();
 
   // State
@@ -68,166 +73,11 @@ export default function TradingScreen() {
   const [activeTab, setActiveTab] = useState("positions");
   const [alertsVisible, setAlertsVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [liveStocks, setLiveStocks] = useState<Stock[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Sell confirmation modal state
   const [sellConfirmVisible, setSellConfirmVisible] = useState(false);
   const [positionToSell, setPositionToSell] = useState<Position | null>(null);
-
-  // Mock data
-  const mockStocks: Stock[] = [
-    {
-      symbol: "COMI",
-      name: "Commercial International Bank",
-      lastPrice: 52.75,
-      change: 0.75,
-      changePercent: 1.44,
-      volume: 1245000,
-      bid: 52.7,
-      ask: 52.8,
-    },
-    {
-      symbol: "HRHO",
-      name: "Hermes Holding",
-      lastPrice: 18.3,
-      change: -0.2,
-      changePercent: -1.08,
-      volume: 980000,
-      bid: 18.25,
-      ask: 18.35,
-    },
-    {
-      symbol: "TMGH",
-      name: "Talaat Moustafa Group",
-      lastPrice: 9.45,
-      change: 0.15,
-      changePercent: 1.61,
-      volume: 750000,
-      bid: 9.4,
-      ask: 9.5,
-    },
-    {
-      symbol: "SWDY",
-      name: "Elsewedy Electric",
-      lastPrice: 12.8,
-      change: -0.1,
-      changePercent: -0.78,
-      volume: 620000,
-      bid: 12.75,
-      ask: 12.85,
-    },
-    {
-      symbol: "EAST",
-      name: "Eastern Company",
-      lastPrice: 15.2,
-      change: 0.3,
-      changePercent: 2.01,
-      volume: 540000,
-      bid: 15.15,
-      ask: 15.25,
-    },
-    {
-      symbol: "EFIH",
-      name: "EFG Hermes Holding",
-      lastPrice: 21.35,
-      change: 0.45,
-      changePercent: 2.15,
-      volume: 890000,
-      bid: 21.3,
-      ask: 21.4,
-    },
-    {
-      symbol: "ETEL",
-      name: "Telecom Egypt",
-      lastPrice: 17.65,
-      change: -0.25,
-      changePercent: -1.4,
-      volume: 720000,
-      bid: 17.6,
-      ask: 17.7,
-    },
-    {
-      symbol: "AMOC",
-      name: "Alexandria Mineral Oils",
-      lastPrice: 8.9,
-      change: 0.2,
-      changePercent: 2.3,
-      volume: 680000,
-      bid: 8.85,
-      ask: 8.95,
-    },
-    {
-      symbol: "SKPC",
-      name: "Sidi Kerir Petrochemicals",
-      lastPrice: 11.75,
-      change: -0.15,
-      changePercent: -1.26,
-      volume: 510000,
-      bid: 11.7,
-      ask: 11.8,
-    },
-    {
-      symbol: "ESRS",
-      name: "Ezz Steel",
-      lastPrice: 19.4,
-      change: 0.35,
-      changePercent: 1.84,
-      volume: 630000,
-      bid: 19.35,
-      ask: 19.45,
-    },
-    {
-      symbol: "ORWE",
-      name: "Oriental Weavers",
-      lastPrice: 10.25,
-      change: 0.1,
-      changePercent: 0.99,
-      volume: 480000,
-      bid: 10.2,
-      ask: 10.3,
-    },
-    {
-      symbol: "MNHD",
-      name: "Madinet Nasr Housing",
-      lastPrice: 7.85,
-      change: -0.05,
-      changePercent: -0.63,
-      volume: 520000,
-      bid: 7.8,
-      ask: 7.9,
-    },
-    {
-      symbol: "PHDC",
-      name: "Palm Hills Development",
-      lastPrice: 6.4,
-      change: 0.15,
-      changePercent: 2.4,
-      volume: 950000,
-      bid: 6.35,
-      ask: 6.45,
-    },
-    {
-      symbol: "HELI",
-      name: "Heliopolis Housing",
-      lastPrice: 8.15,
-      change: -0.1,
-      changePercent: -1.21,
-      volume: 420000,
-      bid: 8.1,
-      ask: 8.2,
-    },
-    {
-      symbol: "JUFO",
-      name: "Juhayna Food Industries",
-      lastPrice: 13.6,
-      change: 0.25,
-      changePercent: 1.87,
-      volume: 380000,
-      bid: 13.55,
-      ask: 13.65,
-    },
-  ];
 
   // Mock alerts
   const alerts: Alert[] = [
@@ -251,16 +101,9 @@ export default function TradingScreen() {
     },
   ];
 
-  // Set mock stocks data on mount
-  useEffect(() => {
-    setLiveStocks(mockStocks);
-  }, []);
-
   // Handle manual refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Simply reset to mock data for stocks
-    setLiveStocks(mockStocks);
 
     // Wait a moment to simulate network request
     setTimeout(() => {
@@ -268,8 +111,14 @@ export default function TradingScreen() {
     }, 1000);
   }, []);
 
+  // Add an effect to refresh positions display when liveStocks change
+  useEffect(() => {
+    // This empty effect will trigger re-renders when liveStocks change,
+    // ensuring position cards show the latest prices and P&L calculations
+  }, [liveStocks]);
+
   // Filter stocks based on search query
-  const filteredStocks = mockStocks.filter(
+  const filteredStocks = liveStocks.filter(
     (stock) =>
       stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
       stock.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -346,9 +195,28 @@ export default function TradingScreen() {
 
   // Render position item
   const renderPositionItem = ({ item }: { item: Position }) => {
-    const pnl = calculatePnL(item);
-    const pnlPercent = calculatePnLPercent(item);
+    // Get the most up-to-date stock price
+    const currentStock = liveStocks.find(
+      (stock) => stock.symbol === item.symbol
+    );
+    const currentPrice = currentStock
+      ? currentStock.lastPrice
+      : item.currentPrice;
+
+    // Use current stock price for calculations instead of position.currentPrice
+    const pnl =
+      item.type === "buy"
+        ? (currentPrice - item.entryPrice) * item.quantity
+        : (item.entryPrice - currentPrice) * item.quantity;
+
+    const pnlPercent =
+      item.type === "buy"
+        ? ((currentPrice - item.entryPrice) / item.entryPrice) * 100
+        : ((item.entryPrice - currentPrice) / item.entryPrice) * 100;
+
     const isProfitable = pnl > 0;
+    const priceUpdated =
+      currentStock && Math.abs(currentPrice - item.currentPrice) > 0.001;
 
     return (
       <ThemedView
@@ -435,9 +303,19 @@ export default function TradingScreen() {
           </View>
           <View style={styles.priceItem}>
             <ThemedText type="caption">Current Price</ThemedText>
-            <ThemedText style={styles.priceValue}>
-              {formatCurrency(item.currentPrice)}
-            </ThemedText>
+            <View style={styles.priceValueContainer}>
+              <ThemedText style={styles.priceValue}>
+                {formatCurrency(currentPrice)}
+              </ThemedText>
+              {priceUpdated && (
+                <Ionicons
+                  name="sync-outline"
+                  size={12}
+                  color={Colors[theme].primary}
+                  style={styles.syncIcon}
+                />
+              )}
+            </View>
           </View>
         </View>
 
@@ -455,6 +333,8 @@ export default function TradingScreen() {
             style={[styles.sellButton, { backgroundColor: "#EF4444" }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // Pass the original position object to avoid state inconsistencies
+              // The closePosition function will handle getting the latest price
               setPositionToSell(item);
               setSellConfirmVisible(true);
             }}
@@ -1043,80 +923,112 @@ export default function TradingScreen() {
 
             {positionToSell && (
               <View style={styles.sellModalContent}>
-                <ThemedText style={styles.confirmText}>
-                  Are you sure you want to sell{" "}
-                  <ThemedText style={styles.highlightText}>
-                    {positionToSell.quantity}
-                  </ThemedText>{" "}
-                  shares of{" "}
-                  <ThemedText style={styles.symbolText}>
-                    {positionToSell.symbol}
-                  </ThemedText>
-                  ?
-                </ThemedText>
+                {/* Get the latest price from liveStocks */}
+                {(() => {
+                  const currentStock = liveStocks.find(
+                    (stock) => stock.symbol === positionToSell.symbol
+                  );
+                  const currentPrice = currentStock
+                    ? currentStock.lastPrice
+                    : positionToSell.currentPrice;
 
-                <View style={styles.sellDetailsCard}>
-                  <View style={styles.sellDetailRow}>
-                    <ThemedText style={styles.sellDetailLabel}>
-                      Entry Price:
-                    </ThemedText>
-                    <ThemedText style={styles.sellDetailValue}>
-                      {formatCurrency(positionToSell.entryPrice)}
-                    </ThemedText>
-                  </View>
+                  // Calculate PnL with the latest price
+                  const pnl =
+                    positionToSell.type === "buy"
+                      ? (currentPrice - positionToSell.entryPrice) *
+                        positionToSell.quantity
+                      : (positionToSell.entryPrice - currentPrice) *
+                        positionToSell.quantity;
 
-                  <View style={styles.sellDetailRow}>
-                    <ThemedText style={styles.sellDetailLabel}>
-                      Current Price:
-                    </ThemedText>
-                    <ThemedText style={styles.sellDetailValue}>
-                      {formatCurrency(positionToSell.currentPrice)}
-                    </ThemedText>
-                  </View>
+                  const isProfitable = pnl > 0;
+                  const priceUpdated =
+                    currentStock &&
+                    Math.abs(currentPrice - positionToSell.currentPrice) >
+                      0.001;
 
-                  <View style={styles.sellDetailRow}>
-                    <ThemedText style={styles.sellDetailLabel}>
-                      Profit/Loss:
-                    </ThemedText>
-                    {(() => {
-                      const pnl =
-                        positionToSell.type === "buy"
-                          ? (positionToSell.currentPrice -
-                              positionToSell.entryPrice) *
-                            positionToSell.quantity
-                          : (positionToSell.entryPrice -
-                              positionToSell.currentPrice) *
-                            positionToSell.quantity;
-                      const isProfitable = pnl > 0;
-                      return (
-                        <ThemedText
-                          style={[
-                            styles.sellDetailValue,
-                            {
-                              color: isProfitable
-                                ? Colors[theme].success
-                                : "#EF4444",
-                            },
-                          ]}
-                        >
-                          {isProfitable ? "+" : ""}
-                          {formatCurrency(pnl)}
+                  return (
+                    <>
+                      <ThemedText style={styles.confirmText}>
+                        Are you sure you want to sell{" "}
+                        <ThemedText style={styles.highlightText}>
+                          {positionToSell.quantity}
+                        </ThemedText>{" "}
+                        shares of{" "}
+                        <ThemedText style={styles.symbolText}>
+                          {positionToSell.symbol}
                         </ThemedText>
-                      );
-                    })()}
-                  </View>
+                        ?
+                      </ThemedText>
 
-                  <View style={[styles.sellDetailRow, styles.totalValueRow]}>
-                    <ThemedText style={styles.totalValueLabel}>
-                      Total Value:
-                    </ThemedText>
-                    <ThemedText style={styles.totalValueAmount}>
-                      {formatCurrency(
-                        positionToSell.currentPrice * positionToSell.quantity
-                      )}
-                    </ThemedText>
-                  </View>
-                </View>
+                      <View style={styles.sellDetailsCard}>
+                        <View style={styles.sellDetailRow}>
+                          <ThemedText style={styles.sellDetailLabel}>
+                            Entry Price:
+                          </ThemedText>
+                          <ThemedText style={styles.sellDetailValue}>
+                            {formatCurrency(positionToSell.entryPrice)}
+                          </ThemedText>
+                        </View>
+
+                        <View style={styles.sellDetailRow}>
+                          <ThemedText style={styles.sellDetailLabel}>
+                            Current Price:
+                          </ThemedText>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                            }}
+                          >
+                            <ThemedText style={styles.sellDetailValue}>
+                              {formatCurrency(currentPrice)}
+                            </ThemedText>
+                            {priceUpdated && (
+                              <Ionicons
+                                name="sync-outline"
+                                size={12}
+                                color={Colors[theme].primary}
+                                style={{ marginLeft: 4 }}
+                              />
+                            )}
+                          </View>
+                        </View>
+
+                        <View style={styles.sellDetailRow}>
+                          <ThemedText style={styles.sellDetailLabel}>
+                            Profit/Loss:
+                          </ThemedText>
+                          <ThemedText
+                            style={[
+                              styles.sellDetailValue,
+                              {
+                                color: isProfitable
+                                  ? Colors[theme].success
+                                  : "#EF4444",
+                              },
+                            ]}
+                          >
+                            {isProfitable ? "+" : ""}
+                            {formatCurrency(pnl)}
+                          </ThemedText>
+                        </View>
+
+                        <View
+                          style={[styles.sellDetailRow, styles.totalValueRow]}
+                        >
+                          <ThemedText style={styles.totalValueLabel}>
+                            Total Value:
+                          </ThemedText>
+                          <ThemedText style={styles.totalValueAmount}>
+                            {formatCurrency(
+                              currentPrice * positionToSell.quantity
+                            )}
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </>
+                  );
+                })()}
               </View>
             )}
 
@@ -1132,6 +1044,7 @@ export default function TradingScreen() {
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   if (positionToSell?.id) {
+                    // Close position directly - the context will handle the sale with the current price
                     closePosition(positionToSell.id);
                   }
                   setSellConfirmVisible(false);
@@ -1422,9 +1335,17 @@ const styles = StyleSheet.create({
   priceItem: {
     flex: 1,
   },
+  priceValueContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   priceValue: {
     fontSize: 16,
     fontWeight: "600",
+    marginTop: 2,
+  },
+  syncIcon: {
+    marginLeft: 4,
     marginTop: 2,
   },
   priceIndicator: {
