@@ -22,6 +22,7 @@ import {
   StarredStock,
   migrateStarredStocks,
   updatePositionPrice,
+  updatePositionQuantity,
 } from "@/firebase/tradingService";
 
 export interface Position {
@@ -68,6 +69,7 @@ interface TradingContextType {
   addOrder: (order: Omit<Order, "id">) => Promise<void>;
   cancelOrder: (id: string) => Promise<void>;
   closePosition: (id: string) => Promise<void>;
+  partialClosePosition: (id: string, quantityToSell: number) => Promise<void>;
   updatePositionCurrentPrice: (id: string, newPrice: number) => Promise<void>;
   starStock: (stock: { symbol: string; name: string }) => Promise<void>;
   unstarStock: (stockId: string) => Promise<void>;
@@ -82,6 +84,11 @@ interface TradingContextType {
   // New stock price simulation properties
   liveStocks: Stock[];
   getStockPrice: (symbol: string) => Stock | null;
+  // New withdrawal properties
+  initialBalance: number;
+  totalWithdrawn: number;
+  validateWithdrawal: (amount: number) => { valid: boolean; message: string };
+  processWithdrawal: (amount: number) => Promise<boolean>;
 }
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
@@ -104,6 +111,8 @@ const ORDERS_STORAGE_KEY = "trading_orders";
 const BALANCE_STORAGE_KEY = "trading_balance";
 const ACCOUNT_MODE_KEY = "account_mode";
 const STARRED_STOCKS_KEY = "starred_stocks";
+const TOTAL_WITHDRAWN_KEY = "total_withdrawn";
+const INITIAL_BALANCE_KEY = "initial_balance";
 
 // Default starting balance
 const DEFAULT_BALANCE = 100000;
@@ -294,6 +303,10 @@ export function TradingProvider({ children }: TradingProviderProps) {
     StarredStock[]
   >([]);
 
+  // New withdrawal tracking state
+  const [initialBalance, setInitialBalance] = useState(DEFAULT_BALANCE);
+  const [totalWithdrawn, setTotalWithdrawn] = useState(0);
+
   // Stock price simulation state
   const [liveStocks, setLiveStocks] = useState<Stock[]>(initialStockData);
   const priceUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -475,6 +488,31 @@ export function TradingProvider({ children }: TradingProviderProps) {
     }
   };
 
+  // Save total withdrawn amount to AsyncStorage
+  const saveTotalWithdrawnToStorage = async (amount: number) => {
+    try {
+      const userId = user?.uid || "guest";
+      const storageKey = `${TOTAL_WITHDRAWN_KEY}_${userId}`;
+      await AsyncStorage.setItem(storageKey, amount.toString());
+    } catch (error) {
+      console.error(
+        "Error saving total withdrawn amount to AsyncStorage:",
+        error
+      );
+    }
+  };
+
+  // Save initial balance to AsyncStorage
+  const saveInitialBalanceToStorage = async (amount: number) => {
+    try {
+      const userId = user?.uid || "guest";
+      const storageKey = `${INITIAL_BALANCE_KEY}_${userId}`;
+      await AsyncStorage.setItem(storageKey, amount.toString());
+    } catch (error) {
+      console.error("Error saving initial balance to AsyncStorage:", error);
+    }
+  };
+
   // Load positions from AsyncStorage with mode prefix
   const loadPositionsFromStorage = async (
     mode: AccountMode
@@ -550,6 +588,35 @@ export function TradingProvider({ children }: TradingProviderProps) {
     }
   };
 
+  // Load total withdrawn amount from AsyncStorage
+  const loadTotalWithdrawnFromStorage = async (): Promise<number> => {
+    try {
+      const userId = user?.uid || "guest";
+      const storageKey = `${TOTAL_WITHDRAWN_KEY}_${userId}`;
+      const data = await AsyncStorage.getItem(storageKey);
+      return data ? parseFloat(data) : 0;
+    } catch (error) {
+      console.error(
+        "Error loading total withdrawn amount from AsyncStorage:",
+        error
+      );
+      return 0;
+    }
+  };
+
+  // Load initial balance from AsyncStorage
+  const loadInitialBalanceFromStorage = async (): Promise<number> => {
+    try {
+      const userId = user?.uid || "guest";
+      const storageKey = `${INITIAL_BALANCE_KEY}_${userId}`;
+      const data = await AsyncStorage.getItem(storageKey);
+      return data ? parseFloat(data) : DEFAULT_BALANCE;
+    } catch (error) {
+      console.error("Error loading initial balance from AsyncStorage:", error);
+      return DEFAULT_BALANCE;
+    }
+  };
+
   // Handle account mode change
   const handleAccountModeChange = async (mode: AccountMode) => {
     setAccountMode(mode);
@@ -606,6 +673,13 @@ export function TradingProvider({ children }: TradingProviderProps) {
         setFundedOrders(fundedOrders);
         setFundedBalance(fundedBalance);
         setFundedStarredStocks(fundedStarredStocks);
+
+        // Load withdrawal related data
+        const initialBalanceValue = await loadInitialBalanceFromStorage();
+        const totalWithdrawnValue = await loadTotalWithdrawnFromStorage();
+
+        setInitialBalance(initialBalanceValue);
+        setTotalWithdrawn(totalWithdrawnValue);
 
         // If user is logged in, try to get starred stocks from Firestore
         if (user) {
@@ -842,6 +916,92 @@ export function TradingProvider({ children }: TradingProviderProps) {
     }
   };
 
+  const partialClosePosition = async (id: string, quantityToSell: number) => {
+    try {
+      // Find the position to partially close based on account mode
+      const currentPositions =
+        accountMode === "Evaluation" ? evaluationPositions : fundedPositions;
+      const position = currentPositions.find((pos) => pos.id === id);
+
+      if (!position) {
+        console.warn(`Position with ID ${id} not found`);
+        return;
+      }
+
+      // Ensure the quantity to sell is valid
+      if (quantityToSell <= 0 || quantityToSell > position.quantity) {
+        console.warn(`Invalid quantity to sell: ${quantityToSell}`);
+        return;
+      }
+
+      // Get the current price from liveStocks if available
+      const currentStock = liveStocks.find(
+        (stock) => stock.symbol === position.symbol
+      );
+      const currentPrice = currentStock
+        ? currentStock.lastPrice
+        : position.currentPrice;
+
+      const newQuantity = position.quantity - quantityToSell;
+
+      // If selling all shares, close the position
+      if (newQuantity === 0) {
+        return await closePosition(id);
+      }
+
+      // Otherwise, update the position with new quantity
+      if (accountMode === "Evaluation") {
+        const updatedPositions = evaluationPositions.map((pos) =>
+          pos.id === id ? { ...pos, quantity: newQuantity } : pos
+        );
+        setEvaluationPositions(updatedPositions);
+        await savePositionsToStorage(updatedPositions, "Evaluation");
+      } else {
+        const updatedPositions = fundedPositions.map((pos) =>
+          pos.id === id ? { ...pos, quantity: newQuantity } : pos
+        );
+        setFundedPositions(updatedPositions);
+        await savePositionsToStorage(updatedPositions, "Funded");
+      }
+
+      // Then try to update in Firestore if user is logged in
+      if (user) {
+        try {
+          // Use the updatePositionQuantity function to update in Firestore
+          await updatePositionQuantity(user.uid, id, newQuantity);
+          console.log(
+            `Position ${id} quantity updated to ${newQuantity} in Firestore`
+          );
+        } catch (error) {
+          console.error(
+            "Error updating position quantity in Firestore:",
+            error
+          );
+        }
+      }
+
+      // Add the sold amount to user's balance
+      const saleValue = currentPrice * quantityToSell;
+      const newBalance = balance + saleValue;
+      await updateBalance(newBalance);
+
+      // Create the sell order for the partial sale
+      await addOrder({
+        symbol: position.symbol,
+        type: "sell",
+        orderType: "market",
+        price: currentPrice,
+        quantity: quantityToSell,
+        status: "filled",
+        time: new Date().toISOString(),
+        executionPrice: currentPrice,
+      });
+    } catch (error) {
+      console.error("Error partially closing position:", error);
+      throw error;
+    }
+  };
+
   // Function to manually update a position's current price
   const updatePositionCurrentPrice = async (id: string, newPrice: number) => {
     try {
@@ -1023,6 +1183,83 @@ export function TradingProvider({ children }: TradingProviderProps) {
     }
   };
 
+  // Validate withdrawal against restrictions
+  const validateWithdrawal = (amount: number) => {
+    // Calculate total profit
+    const profit = balance - initialBalance;
+
+    // If there's no profit, withdrawal is not allowed
+    if (profit <= 0) {
+      return {
+        valid: false,
+        message: "Withdrawals are only allowed from profits",
+      };
+    }
+
+    // Calculate 80% of total profit (maximum allowed withdrawal)
+    const maxAllowedWithdrawal = profit * 0.8;
+
+    // Calculate per-transaction limit (20% of the profit share)
+    const perTransactionLimit = maxAllowedWithdrawal * 0.2;
+
+    // Check if amount exceeds per-transaction limit
+    if (amount > perTransactionLimit) {
+      return {
+        valid: false,
+        message: `Maximum withdrawal per transaction is ${perTransactionLimit.toLocaleString(
+          "en-US"
+        )} EGP (20% of your profit share)`,
+      };
+    }
+
+    // Calculate remaining allowed withdrawal
+    const remainingAllowedWithdrawal = maxAllowedWithdrawal - totalWithdrawn;
+
+    // Check if requested amount exceeds remaining allowed withdrawal
+    if (amount > remainingAllowedWithdrawal) {
+      return {
+        valid: false,
+        message: `You can only withdraw up to ${remainingAllowedWithdrawal.toLocaleString(
+          "en-US"
+        )} EGP (80% of your total profits)`,
+      };
+    }
+
+    // Check if amount exceeds current balance
+    if (amount > balance) {
+      return {
+        valid: false,
+        message: "Withdrawal amount exceeds your current balance",
+      };
+    }
+
+    return { valid: true, message: "" };
+  };
+
+  // Process withdrawal
+  const processWithdrawal = async (amount: number) => {
+    try {
+      const validation = validateWithdrawal(amount);
+      if (!validation.valid) {
+        return false;
+      }
+
+      // Deduct from balance
+      const newBalance = balance - amount;
+      await updateBalance(newBalance);
+
+      // Update total withdrawn
+      const newTotalWithdrawn = totalWithdrawn + amount;
+      setTotalWithdrawn(newTotalWithdrawn);
+      await saveTotalWithdrawnToStorage(newTotalWithdrawn);
+
+      return true;
+    } catch (error) {
+      console.error("Error processing withdrawal:", error);
+      return false;
+    }
+  };
+
   return (
     <TradingContext.Provider
       value={{
@@ -1033,6 +1270,7 @@ export function TradingProvider({ children }: TradingProviderProps) {
         addOrder,
         cancelOrder,
         closePosition,
+        partialClosePosition,
         updatePositionCurrentPrice,
         starStock,
         unstarStock,
@@ -1047,6 +1285,11 @@ export function TradingProvider({ children }: TradingProviderProps) {
         // New stock price simulation properties
         liveStocks,
         getStockPrice,
+        // New withdrawal properties
+        initialBalance,
+        totalWithdrawn,
+        validateWithdrawal,
+        processWithdrawal,
       }}
     >
       {children}

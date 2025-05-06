@@ -197,6 +197,39 @@ export const updatePositionPrice = async (
   }
 };
 
+// Update a position's quantity
+export const updatePositionQuantity = async (
+  userId: string, 
+  positionId: string, 
+  quantity: number
+): Promise<void> => {
+  try {
+    // First verify that the position belongs to the user
+    const positionRef = doc(db, "positions", positionId);
+    const positionDoc = await getDoc(positionRef);
+    
+    if (!positionDoc.exists()) {
+      throw new Error(`Position with ID ${positionId} not found`);
+    }
+    
+    const positionData = positionDoc.data();
+    if (positionData.userId !== userId) {
+      throw new Error(`Position does not belong to user ${userId}`);
+    }
+    
+    // Only update the quantity and updatedAt fields
+    await setDoc(positionRef, {
+      quantity,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    
+    console.log(`Position ${positionId} quantity updated to ${quantity} for user ${userId}`);
+  } catch (error) {
+    console.error("Error updating position quantity:", error);
+    throw error;
+  }
+};
+
 // Update a limit order status when it executes
 export const updateOrderStatus = async (
   userId: string,

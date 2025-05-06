@@ -63,6 +63,7 @@ export default function TradingScreen() {
     positions,
     orders,
     closePosition,
+    partialClosePosition,
     loading: tradingDataLoading,
     starredStocks,
     liveStocks, // Use centralized live stock data
@@ -80,6 +81,7 @@ export default function TradingScreen() {
   // Sell confirmation modal state
   const [sellConfirmVisible, setSellConfirmVisible] = useState(false);
   const [positionToSell, setPositionToSell] = useState<Position | null>(null);
+  const [sellQuantity, setSellQuantity] = useState(0);
 
   // State for cancel confirmation modal
   const [cancelConfirmVisible, setCancelConfirmVisible] = useState(false);
@@ -342,6 +344,7 @@ export default function TradingScreen() {
               // Pass the original position object to avoid state inconsistencies
               // The closePosition function will handle getting the latest price
               setPositionToSell(item);
+              setSellQuantity(item.quantity);
               setSellConfirmVisible(true);
             }}
           >
@@ -993,7 +996,7 @@ export default function TradingScreen() {
                       <ThemedText style={styles.confirmText}>
                         Are you sure you want to sell{" "}
                         <ThemedText style={styles.highlightText}>
-                          {positionToSell.quantity}
+                          {sellQuantity}
                         </ThemedText>{" "}
                         shares of{" "}
                         <ThemedText style={styles.symbolText}>
@@ -1055,6 +1058,68 @@ export default function TradingScreen() {
                           </ThemedText>
                         </View>
 
+                        <View style={styles.sellDetailRow}>
+                          <ThemedText style={styles.sellDetailLabel}>
+                            Quantity to Sell:
+                          </ThemedText>
+                          <View style={styles.quantitySelector}>
+                            <TouchableOpacity
+                              style={styles.quantityButton}
+                              onPress={() => {
+                                if (sellQuantity > 1) {
+                                  setSellQuantity(sellQuantity - 1);
+                                }
+                              }}
+                            >
+                              <Ionicons
+                                name="remove"
+                                size={20}
+                                color={Colors[theme].text}
+                              />
+                            </TouchableOpacity>
+                            <ThemedText style={styles.quantityValue}>
+                              {sellQuantity}
+                            </ThemedText>
+                            <TouchableOpacity
+                              style={styles.quantityButton}
+                              onPress={() => {
+                                if (sellQuantity < positionToSell.quantity) {
+                                  setSellQuantity(sellQuantity + 1);
+                                }
+                              }}
+                            >
+                              <Ionicons
+                                name="add"
+                                size={20}
+                                color={Colors[theme].text}
+                              />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.maxButton}
+                              onPress={() => {
+                                setSellQuantity(positionToSell.quantity);
+                              }}
+                            >
+                              <ThemedText style={styles.maxButtonText}>
+                                Max
+                              </ThemedText>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+
+                        <View style={styles.sellDetailRow}>
+                          <ThemedText style={styles.sellDetailLabel}>
+                            Percentage of Position:
+                          </ThemedText>
+                          <ThemedText style={styles.sellDetailValue}>
+                            {(
+                              (sellQuantity / positionToSell.quantity) *
+                              100
+                            ).toFixed(0)}
+                            %
+                          </ThemedText>
+                        </View>
+
                         <View
                           style={[styles.sellDetailRow, styles.totalValueRow]}
                         >
@@ -1062,9 +1127,7 @@ export default function TradingScreen() {
                             Total Value:
                           </ThemedText>
                           <ThemedText style={styles.totalValueAmount}>
-                            {formatCurrency(
-                              currentPrice * positionToSell.quantity
-                            )}
+                            {formatCurrency(currentPrice * sellQuantity)}
                           </ThemedText>
                         </View>
                       </View>
@@ -1082,12 +1145,16 @@ export default function TradingScreen() {
                 <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.confirmButton}
+                style={[styles.confirmButton, { backgroundColor: "#EF4444" }]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   if (positionToSell?.id) {
-                    // Close position directly - the context will handle the sale with the current price
-                    closePosition(positionToSell.id);
+                    // Use partialClosePosition if selling part of the position, otherwise use closePosition
+                    if (sellQuantity < positionToSell.quantity) {
+                      partialClosePosition(positionToSell.id, sellQuantity);
+                    } else {
+                      closePosition(positionToSell.id);
+                    }
                   }
                   setSellConfirmVisible(false);
                 }}
@@ -1782,5 +1849,44 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
     opacity: 0.7,
+  },
+
+  // Quantity selector styles
+  quantitySelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.1)",
+    borderRadius: 8,
+    padding: 4,
+  },
+  quantityButton: {
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+  },
+  quantityValue: {
+    marginHorizontal: 12,
+    fontSize: 16,
+    fontWeight: "600",
+    minWidth: 30,
+    textAlign: "center",
+  },
+  maxButton: {
+    marginLeft: 8,
+    paddingHorizontal: 10,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 16,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  maxButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#EF4444",
   },
 });

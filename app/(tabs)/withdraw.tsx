@@ -11,7 +11,22 @@ import { router } from "expo-router";
 export default function WithdrawScreen() {
   const { currentTheme } = useTheme();
   const theme = currentTheme;
-  const { accountMode, balance } = useTradingContext();
+  const {
+    accountMode,
+    balance,
+    initialBalance,
+    totalWithdrawn,
+    validateWithdrawal,
+  } = useTradingContext();
+
+  // Calculate profit and withdrawal limits
+  const profit = balance - initialBalance;
+  const maxWithdrawalAllowed = profit > 0 ? profit * 0.8 : 0;
+  const perTransactionLimit = Math.max(0, maxWithdrawalAllowed * 0.2); // 20% of user's profit share
+  const remainingWithdrawalAllowed = Math.max(
+    0,
+    maxWithdrawalAllowed - totalWithdrawn
+  );
 
   // Function to handle navigation to specific withdrawal method
   const navigateToMethod = (method: string) => {
@@ -70,13 +85,68 @@ export default function WithdrawScreen() {
         </View>
       </View>
 
-      <View style={styles.contentContainer}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.contentContainer}
+      >
         <ThemedView variant="elevated" style={styles.balanceCard}>
           <ThemedText style={styles.balanceLabel}>Available Balance</ThemedText>
           <ThemedText style={styles.balanceAmount}>
             {balance.toLocaleString("en-US")} EGP
           </ThemedText>
         </ThemedView>
+
+        {/* Withdrawal Limits Section */}
+        <ThemedView variant="elevated" style={styles.limitsCard}>
+          <View style={styles.limitRow}>
+            <ThemedText style={styles.limitLabel}>Initial Balance</ThemedText>
+            <ThemedText style={styles.limitValue}>
+              {initialBalance.toLocaleString("en-US")} EGP
+            </ThemedText>
+          </View>
+
+          <View style={styles.limitRow}>
+            <ThemedText style={styles.limitLabel}>Total Profit</ThemedText>
+            <ThemedText
+              style={[
+                styles.limitValue,
+                profit > 0 ? styles.profitColor : styles.lossColor,
+              ]}
+            >
+              {profit.toLocaleString("en-US")} EGP
+            </ThemedText>
+          </View>
+
+          <View style={styles.limitRow}>
+            <ThemedText style={styles.limitLabel}>Total Withdrawn</ThemedText>
+            <ThemedText style={styles.limitValue}>
+              {totalWithdrawn.toLocaleString("en-US")} EGP
+            </ThemedText>
+          </View>
+
+          <View style={[styles.limitRow, styles.highlightedRow]}>
+            <ThemedText style={[styles.limitLabel, styles.highlightedText]}>
+              Available for Withdrawal
+            </ThemedText>
+            <ThemedText style={[styles.limitValue, styles.highlightedText]}>
+              {remainingWithdrawalAllowed.toLocaleString("en-US")} EGP
+            </ThemedText>
+          </View>
+        </ThemedView>
+
+        <View style={styles.infoContainer}>
+          <Ionicons
+            name="information-circle"
+            size={20}
+            color={Colors[theme].primary}
+          />
+          <ThemedText style={styles.infoText}>
+            You can withdraw up to 80% of your total profits with a maximum of{" "}
+            {perTransactionLimit.toLocaleString("en-US")} EGP per transaction
+            (20% of your profit share).
+          </ThemedText>
+        </View>
 
         <ThemedText style={styles.formSectionTitle}>
           Select Withdrawal Method
@@ -215,7 +285,7 @@ export default function WithdrawScreen() {
             </TouchableOpacity>
           </ThemedView>
         </View>
-      </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -238,14 +308,17 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "700",
   },
-  contentContainer: {
+  scrollView: {
     flex: 1,
+  },
+  contentContainer: {
     paddingHorizontal: 16,
+    paddingBottom: 24,
   },
   balanceCard: {
     padding: 20,
     borderRadius: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   balanceLabel: {
     fontSize: 16,
@@ -259,6 +332,58 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     lineHeight: 40,
   },
+  limitsCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  limitRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.05)",
+  },
+  limitLabel: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  limitValue: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  highlightedRow: {
+    borderBottomWidth: 0,
+    paddingTop: 12,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 0, 0, 0.05)",
+  },
+  highlightedText: {
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  profitColor: {
+    color: "#00B894",
+  },
+  lossColor: {
+    color: "#FF5252",
+  },
+  infoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 184, 148, 0.08)",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 24,
+  },
+  infoText: {
+    fontSize: 13,
+    marginLeft: 8,
+    flex: 1,
+    opacity: 0.9,
+    lineHeight: 18,
+  },
   formSectionTitle: {
     fontSize: 20,
     fontWeight: "700",
@@ -268,6 +393,7 @@ const styles = StyleSheet.create({
   methodsContainer: {
     flexDirection: "column",
     gap: 16,
+    marginBottom: 16,
   },
   methodCard: {
     borderRadius: 16,

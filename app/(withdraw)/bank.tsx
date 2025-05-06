@@ -20,7 +20,13 @@ import { router } from "expo-router";
 export default function BankWithdrawalScreen() {
   const { currentTheme } = useTheme();
   const theme = currentTheme;
-  const { balance } = useTradingContext();
+  const {
+    balance,
+    initialBalance,
+    totalWithdrawn,
+    validateWithdrawal,
+    processWithdrawal,
+  } = useTradingContext();
 
   const [accountNumber, setAccountNumber] = useState("");
   const [bankName, setBankName] = useState("");
@@ -28,11 +34,20 @@ export default function BankWithdrawalScreen() {
   const [amount, setAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Calculate withdrawal limits
+  const profit = balance - initialBalance;
+  const maxWithdrawalAllowed = profit > 0 ? profit * 0.8 : 0;
+  const perTransactionLimit = Math.max(0, maxWithdrawalAllowed * 0.2); // 20% of user's profit share
+  const remainingWithdrawalAllowed = Math.max(
+    0,
+    maxWithdrawalAllowed - totalWithdrawn
+  );
+
   const handleBack = () => {
     router.back();
   };
 
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     // Input validation
     if (!accountNumber || accountNumber.length < 16) {
       Alert.alert(
@@ -61,20 +76,31 @@ export default function BankWithdrawalScreen() {
       return;
     }
 
-    if (withdrawAmount > balance) {
+    // Check if amount exceeds per-transaction limit
+    if (withdrawAmount > perTransactionLimit) {
       Alert.alert(
-        "Insufficient Balance",
-        "You don't have enough balance for this withdrawal"
+        "Transaction Limit Exceeded",
+        `Maximum withdrawal per transaction is ${perTransactionLimit.toLocaleString(
+          "en-US"
+        )} EGP (20% of your profit share)`
       );
+      return;
+    }
+
+    // Validate against withdrawal restrictions
+    const validation = validateWithdrawal(withdrawAmount);
+    if (!validation.valid) {
+      Alert.alert("Withdrawal Limit Exceeded", validation.message);
       return;
     }
 
     // Proceed with withdrawal
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    // Process the withdrawal
+    const success = await processWithdrawal(withdrawAmount);
+
+    if (success) {
       Alert.alert(
         "Withdrawal Initiated",
         `Your withdrawal of EGP ${withdrawAmount.toLocaleString(
@@ -87,7 +113,14 @@ export default function BankWithdrawalScreen() {
           },
         ]
       );
-    }, 1500);
+    } else {
+      Alert.alert(
+        "Withdrawal Failed",
+        "There was an issue processing your withdrawal. Please try again."
+      );
+    }
+
+    setIsLoading(false);
   };
 
   return (
@@ -101,7 +134,7 @@ export default function BankWithdrawalScreen() {
             <Ionicons name="arrow-back" size={24} color={Colors[theme].text} />
           </TouchableOpacity>
           <ThemedText type="heading" style={styles.headerTitle}>
-            Bank Transfer Withdrawal
+            Bank Withdrawal
           </ThemedText>
         </View>
 
@@ -119,11 +152,61 @@ export default function BankWithdrawalScreen() {
             </ThemedText>
           </ThemedView>
 
+          {/* Withdrawal Limits Section */}
+          <ThemedView variant="elevated" style={styles.infoCard}>
+            <View style={styles.infoRow}>
+              <ThemedText style={styles.infoLabel}>
+                Available for Withdrawal
+              </ThemedText>
+              <ThemedText style={styles.infoValue}>
+                {remainingWithdrawalAllowed.toLocaleString("en-US")} EGP
+              </ThemedText>
+            </View>
+
+            <View style={styles.infoRow}>
+              <ThemedText style={styles.infoLabel}>
+                Per-Transaction Limit
+              </ThemedText>
+              <ThemedText style={styles.infoValue}>
+                {perTransactionLimit.toLocaleString("en-US")} EGP
+              </ThemedText>
+            </View>
+          </ThemedView>
+
           <ThemedText style={styles.formSectionTitle}>
-            Withdrawal Details
+            Bank Account Details
           </ThemedText>
 
           <ThemedView variant="elevated" style={styles.formCard}>
+            <View style={styles.formGroup}>
+              <ThemedText style={styles.formLabel}>Account Number</ThemedText>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  { color: Colors[theme].text, borderColor: "rgba(0,0,0,0.2)" },
+                ]}
+                placeholderTextColor={Colors[theme].text + "80"}
+                placeholder="Enter account number"
+                keyboardType="number-pad"
+                value={accountNumber}
+                onChangeText={setAccountNumber}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <ThemedText style={styles.formLabel}>Bank Name</ThemedText>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  { color: Colors[theme].text, borderColor: "rgba(0,0,0,0.2)" },
+                ]}
+                placeholderTextColor={Colors[theme].text + "80"}
+                placeholder="Enter bank name"
+                value={bankName}
+                onChangeText={setBankName}
+              />
+            </View>
+
             <View style={styles.formGroup}>
               <ThemedText style={styles.formLabel}>
                 Account Holder Name
@@ -141,42 +224,6 @@ export default function BankWithdrawalScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <ThemedText style={styles.formLabel}>Bank Name</ThemedText>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  { color: Colors[theme].text, borderColor: "rgba(0,0,0,0.2)" },
-                ]}
-                placeholderTextColor={Colors[theme].text + "80"}
-                placeholder="Enter bank name"
-                value={bankName}
-                onChangeText={setBankName}
-              />
-              <ThemedText style={styles.inputHelp}>
-                e.g., CIB, QNB, Bank Misr
-              </ThemedText>
-            </View>
-
-            <View style={styles.formGroup}>
-              <ThemedText style={styles.formLabel}>Account Number</ThemedText>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  { color: Colors[theme].text, borderColor: "rgba(0,0,0,0.2)" },
-                ]}
-                placeholderTextColor={Colors[theme].text + "80"}
-                placeholder="Enter account number"
-                keyboardType="numeric"
-                value={accountNumber}
-                onChangeText={setAccountNumber}
-                maxLength={16}
-              />
-              <ThemedText style={styles.inputHelp}>
-                Enter your 16-digit bank account number
-              </ThemedText>
-            </View>
-
-            <View style={styles.formGroup}>
               <ThemedText style={styles.formLabel}>Amount (EGP)</ThemedText>
               <TextInput
                 style={[
@@ -190,19 +237,8 @@ export default function BankWithdrawalScreen() {
                 onChangeText={setAmount}
               />
               <ThemedText style={styles.inputHelp}>
-                Minimum withdrawal: 500 EGP
-              </ThemedText>
-            </View>
-
-            <View style={styles.infoContainer}>
-              <Ionicons
-                name="information-circle"
-                size={20}
-                color={Colors[theme].primary}
-              />
-              <ThemedText style={styles.infoText}>
-                Bank transfers may take 1-3 business days to process. A fee of
-                2% may apply.
+                Maximum per transaction:{" "}
+                {perTransactionLimit.toLocaleString("en-US")} EGP
               </ThemedText>
             </View>
           </ThemedView>
@@ -291,22 +327,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   inputHelp: {
-    fontSize: 14,
-    opacity: 0.7,
+    fontSize: 12,
+    opacity: 0.6,
     marginTop: 4,
-    marginLeft: 4,
   },
-  infoContainer: {
+  infoCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 24,
+  },
+  infoRow: {
     flexDirection: "row",
-    backgroundColor: "rgba(46, 204, 113, 0.1)",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.05)",
   },
-  infoText: {
+  infoLabel: {
     fontSize: 14,
-    marginLeft: 8,
-    flex: 1,
+    opacity: 0.8,
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: "600",
   },
   withdrawButton: {
     backgroundColor: Colors.light.primary,

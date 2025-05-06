@@ -4,6 +4,10 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { Colors } from "@/constants/Colors";
 import { useTradingContext } from "@/contexts/TradingContext";
 import { Platform } from "react-native";
+import { LogBox } from "react-native";
+
+// ⚠️ Temporarily hide all warnings and red screen errors in dev
+LogBox.ignoreAllLogs(true);
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();

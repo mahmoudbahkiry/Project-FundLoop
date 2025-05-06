@@ -42,18 +42,33 @@ const cryptoOptions = [
 export default function CryptoWithdrawalScreen() {
   const { currentTheme } = useTheme();
   const theme = currentTheme;
-  const { balance } = useTradingContext();
+  const {
+    balance,
+    initialBalance,
+    totalWithdrawn,
+    validateWithdrawal,
+    processWithdrawal,
+  } = useTradingContext();
 
   const [walletAddress, setWalletAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [selectedCrypto, setSelectedCrypto] = useState(cryptoOptions[0]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Calculate withdrawal limits
+  const profit = balance - initialBalance;
+  const maxWithdrawalAllowed = profit > 0 ? profit * 0.8 : 0;
+  const perTransactionLimit = Math.max(0, maxWithdrawalAllowed * 0.2); // 20% of user's profit share
+  const remainingWithdrawalAllowed = Math.max(
+    0,
+    maxWithdrawalAllowed - totalWithdrawn
+  );
+
   const handleBack = () => {
     router.back();
   };
 
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     // Input validation
     if (!walletAddress || walletAddress.length < 26) {
       Alert.alert(
@@ -69,20 +84,31 @@ export default function CryptoWithdrawalScreen() {
       return;
     }
 
-    if (withdrawAmount > balance) {
+    // Check if amount exceeds per-transaction limit
+    if (withdrawAmount > perTransactionLimit) {
       Alert.alert(
-        "Insufficient Balance",
-        "You don't have enough balance for this withdrawal"
+        "Transaction Limit Exceeded",
+        `Maximum withdrawal per transaction is ${perTransactionLimit.toLocaleString(
+          "en-US"
+        )} EGP (20% of your profit share)`
       );
+      return;
+    }
+
+    // Validate against withdrawal restrictions
+    const validation = validateWithdrawal(withdrawAmount);
+    if (!validation.valid) {
+      Alert.alert("Withdrawal Limit Exceeded", validation.message);
       return;
     }
 
     // Proceed with withdrawal
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    // Process the withdrawal
+    const success = await processWithdrawal(withdrawAmount);
+
+    if (success) {
       Alert.alert(
         "Withdrawal Initiated",
         `Your withdrawal of ${withdrawAmount.toLocaleString(
@@ -97,7 +123,14 @@ export default function CryptoWithdrawalScreen() {
           },
         ]
       );
-    }, 1500);
+    } else {
+      Alert.alert(
+        "Withdrawal Failed",
+        "There was an issue processing your withdrawal. Please try again."
+      );
+    }
+
+    setIsLoading(false);
   };
 
   return (
@@ -127,6 +160,27 @@ export default function CryptoWithdrawalScreen() {
             <ThemedText style={styles.balanceAmount}>
               {balance.toLocaleString("en-US")} EGP
             </ThemedText>
+          </ThemedView>
+
+          {/* Withdrawal Limits Section */}
+          <ThemedView variant="elevated" style={styles.infoCard}>
+            <View style={styles.infoRow}>
+              <ThemedText style={styles.infoLabel}>
+                Available for Withdrawal
+              </ThemedText>
+              <ThemedText style={styles.infoValue}>
+                {remainingWithdrawalAllowed.toLocaleString("en-US")} EGP
+              </ThemedText>
+            </View>
+
+            <View style={styles.infoRow}>
+              <ThemedText style={styles.infoLabel}>
+                Per-Transaction Limit
+              </ThemedText>
+              <ThemedText style={styles.infoValue}>
+                {perTransactionLimit.toLocaleString("en-US")} EGP
+              </ThemedText>
+            </View>
           </ThemedView>
 
           <ThemedText style={styles.formSectionTitle}>
@@ -211,7 +265,8 @@ export default function CryptoWithdrawalScreen() {
                 onChangeText={setAmount}
               />
               <ThemedText style={styles.inputHelp}>
-                Minimum withdrawal: 500 EGP
+                Maximum per transaction:{" "}
+                {perTransactionLimit.toLocaleString("en-US")} EGP
               </ThemedText>
             </View>
 
@@ -375,6 +430,26 @@ const styles = StyleSheet.create({
   },
   withdrawButtonText: {
     color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  infoCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 24,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.05)",
+  },
+  infoLabel: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  infoValue: {
     fontSize: 16,
     fontWeight: "600",
   },

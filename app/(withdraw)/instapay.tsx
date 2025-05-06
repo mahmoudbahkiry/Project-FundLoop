@@ -8,6 +8,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   StatusBar,
+  ScrollView,
 } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -21,18 +22,33 @@ import { router } from "expo-router";
 export default function InstapayWithdrawScreen() {
   const { currentTheme } = useTheme();
   const theme = currentTheme;
-  const { balance } = useTradingContext();
+  const {
+    balance,
+    initialBalance,
+    totalWithdrawn,
+    validateWithdrawal,
+    processWithdrawal,
+  } = useTradingContext();
 
   const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [instapayType, setInstapayType] = useState("wallet"); // Default to wallet
 
+  // Calculate withdrawal limits
+  const profit = balance - initialBalance;
+  const maxWithdrawalAllowed = profit > 0 ? profit * 0.8 : 0;
+  const perTransactionLimit = Math.max(0, maxWithdrawalAllowed * 0.2); // 20% of user's profit share
+  const remainingWithdrawalAllowed = Math.max(
+    0,
+    maxWithdrawalAllowed - totalWithdrawn
+  );
+
   const handleBack = () => {
     router.back();
   };
 
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     // Basic validation
     if (!phoneNumber.trim()) {
       Alert.alert("Error", "Please enter a valid phone number");
@@ -44,18 +60,36 @@ export default function InstapayWithdrawScreen() {
       return;
     }
 
-    if (Number(amount) > balance) {
-      Alert.alert("Error", "Withdrawal amount exceeds available balance");
+    const withdrawAmount = Number(amount);
+
+    // Check if amount exceeds per-transaction limit
+    if (withdrawAmount > perTransactionLimit) {
+      Alert.alert(
+        "Transaction Limit Exceeded",
+        `Maximum withdrawal per transaction is ${perTransactionLimit.toLocaleString(
+          "en-US"
+        )} EGP (20% of your profit share)`
+      );
       return;
     }
 
-    // Simulate processing
+    // Validate against withdrawal restrictions
+    const validation = validateWithdrawal(withdrawAmount);
+    if (!validation.valid) {
+      Alert.alert("Withdrawal Limit Exceeded", validation.message);
+      return;
+    }
+
+    // Proceed with withdrawal
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+
+    // Process the withdrawal
+    const success = await processWithdrawal(withdrawAmount);
+
+    if (success) {
       Alert.alert(
         "Withdrawal Initiated",
-        `Your withdrawal of ${Number(amount).toLocaleString(
+        `Your withdrawal of ${withdrawAmount.toLocaleString(
           "en-US"
         )} EGP to your ${
           instapayType === "wallet" ? "mobile wallet" : "bank account"
@@ -67,7 +101,14 @@ export default function InstapayWithdrawScreen() {
           },
         ]
       );
-    }, 1500);
+    } else {
+      Alert.alert(
+        "Withdrawal Failed",
+        "There was an issue processing your withdrawal. Please try again."
+      );
+    }
+
+    setIsLoading(false);
   };
 
   return (
@@ -90,7 +131,11 @@ export default function InstapayWithdrawScreen() {
             </ThemedText>
           </View>
 
-          <View style={styles.contentContainer}>
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollViewContent}
+          >
             <ThemedView variant="elevated" style={styles.balanceCard}>
               <ThemedText style={styles.balanceLabel}>
                 Available Balance
@@ -98,6 +143,27 @@ export default function InstapayWithdrawScreen() {
               <ThemedText style={styles.balanceAmount}>
                 {balance.toLocaleString("en-US")} EGP
               </ThemedText>
+            </ThemedView>
+
+            {/* Withdrawal Limits Section */}
+            <ThemedView variant="elevated" style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <ThemedText style={styles.infoLabel}>
+                  Available for Withdrawal
+                </ThemedText>
+                <ThemedText style={styles.infoValue}>
+                  {remainingWithdrawalAllowed.toLocaleString("en-US")} EGP
+                </ThemedText>
+              </View>
+
+              <View style={styles.infoRow}>
+                <ThemedText style={styles.infoLabel}>
+                  Per-Transaction Limit
+                </ThemedText>
+                <ThemedText style={styles.infoValue}>
+                  {perTransactionLimit.toLocaleString("en-US")} EGP
+                </ThemedText>
+              </View>
             </ThemedView>
 
             <ThemedText style={styles.formSectionTitle}>
@@ -211,7 +277,8 @@ export default function InstapayWithdrawScreen() {
                   onChangeText={setAmount}
                 />
                 <ThemedText style={styles.inputHelp}>
-                  Minimum withdrawal: 500 EGP
+                  Maximum per transaction:{" "}
+                  {perTransactionLimit.toLocaleString("en-US")} EGP
                 </ThemedText>
               </View>
 
@@ -240,7 +307,7 @@ export default function InstapayWithdrawScreen() {
                 {isLoading ? "Processing..." : "Withdraw Funds"}
               </ThemedText>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </ThemedView>
       </TouchableWithoutFeedback>
     </SafeAreaView>
@@ -262,6 +329,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
   },
   contentContainer: {
     flex: 1,
@@ -389,6 +463,26 @@ const styles = StyleSheet.create({
   },
   withdrawButtonText: {
     color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  infoCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 24,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.05)",
+  },
+  infoLabel: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  infoValue: {
     fontSize: 16,
     fontWeight: "600",
   },
