@@ -284,6 +284,19 @@ export default function BuyStockScreen() {
     });
   };
 
+  // Navigate to Bid-Ask View
+  const navigateToBidAsk = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: "/bid-ask-view",
+      params: {
+        symbol,
+        name: stockName,
+        price: currentPrice.toString(),
+      },
+    });
+  };
+
   // Add effect to update price in modal
   useEffect(() => {
     // Only run this effect if the modal is visible with market order
@@ -401,6 +414,21 @@ export default function BuyStockScreen() {
                   {formatCurrency(balance)}
                 </ThemedText>
               </View>
+
+              {/* Add Bid-Ask View Button */}
+              <TouchableOpacity
+                style={styles.bidAskButton}
+                onPress={navigateToBidAsk}
+              >
+                <ThemedText style={styles.bidAskButtonText}>
+                  View Market Depth
+                </ThemedText>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={Colors[theme].primary}
+                />
+              </TouchableOpacity>
             </View>
 
             {/* Order Type Selection */}
@@ -1137,5 +1165,20 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  bidAskButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.1)",
+  },
+  bidAskButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: Colors.light.primary,
+    marginRight: 4,
   },
 });
